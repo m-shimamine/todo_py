@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>詳細設計書｜Todoアプリ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#18222E;--paper:#F6F7F4;--surface:#FFFFFF;--line:#E4E5DE;--accent:#007AFF;--flag:#FF9500;--danger:#FF3B30;--muted:#767A73;}
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans JP",sans-serif;margin:0;line-height:1.7}
+  .font-disp{font-family:"Zen Kaku Gothic New",sans-serif}
+  .mono{font-family:"Roboto Mono",monospace}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+  h2{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:900;font-size:1.4rem;margin:0}
+  h3{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#EEF0EA;text-align:left;padding:8px 10px;font-weight:700;border:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 10px;border:1px solid var(--line);vertical-align:top}
+  td.mono{font-family:"Roboto Mono",monospace;font-size:12px}
+  .m{display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:"Roboto Mono",monospace}
+  .m-get{background:#E3EEFF;color:#1F4E8C}
+  .m-post{background:#E4F6E9;color:#1E6B39}
+  .m-put{background:#FFF1DF;color:#8A5A17}
+  .m-del{background:#FFE6E4;color:#93382C}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  pre{background:#18222E;color:#E8EDE9;border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"Roboto Mono",monospace;font-size:12px;line-height:1.6}
+  code.inl{font-family:"Roboto Mono",monospace;background:rgba(0,0,0,.05);padding:0 5px;border-radius:4px;font-size:12px}
+  ::selection{background:#CCE4FF}
+</style>
+</head>
+<body>
+<div class="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+
+  <div class="flex items-center gap-4 mb-2">
+    <div class="w-12 h-12 rounded-xl grid place-items-center" style="background:var(--ink)"><span class="font-disp text-white text-xl">✓</span></div>
+    <div>
+      <p class="mono text-xs tracking-widest" style="color:var(--accent)">DETAILED DESIGN</p>
+      <h1 class="font-disp font-black text-3xl leading-tight">詳細設計書</h1>
+    </div>
+  </div>
+  <p style="color:var(--muted)" class="mb-1">Todoアプリ ｜ Python 3.9 + pywebview + SQLite ｜ ローカル単体動作（HTTPサーバなし）</p>
+  <div class="flex flex-wrap gap-4 text-xs mono mb-8" style="color:var(--muted)">
+    <span>Ver 1.1</span><span>2026-09-20</span><span>移植元 C:\Windows11\work\todo_app</span>
+  </div>
+
+  <div class="card p-4 mb-8" style="border-left:4px solid var(--flag)">
+    <b>Ver 1.1 の変更</b>
+    <ul class="list-disc list-inside text-sm mt-1 space-y-1" style="color:var(--muted)">
+      <li>画面構成を<b style="color:var(--ink)">移植元のレイアウト（iOSリマインダー風の単一カラム）に揃えた</b>。Ver 1.0 の3ペイン構成は移植元から乖離していたため破棄。</li>
+      <li><b style="color:var(--ink)">HTTPサーバ（Flask）を廃止</b>し、pywebview の js_api 方式に変更した（<a href="#arch" style="color:var(--accent)">1章</a>）。ブラウザから開ける経路を持たない。</li>
+      <li><b style="color:var(--ink)">アーカイブを廃止</b>（<a href="#diff" style="color:var(--accent)">16章</a>）。関連する画面・API・テーブルをすべて削除した。</li>
+      <li><b style="color:var(--ink)">絞り込み条件を追加</b>（<a href="#filter" style="color:var(--accent)">10章</a>）。期限は範囲で指定する。</li>
+      <li><b style="color:var(--ink)">レスポンシブ設計の章を追加</b>（<a href="#responsive" style="color:var(--accent)">11章</a>）。縮小耐性に加え、<b style="color:var(--ink)">最大化時は3カラムへ組み替え、詳細を右サイドパネルにする</b>。</li>
+      <li><code class="inl">import_log</code> テーブルを廃止し、CSVの二重取込は<b style="color:var(--ink)">「先にリネームしてから読む」</b>順序で防ぐ（<a href="#csv" style="color:var(--accent)">13章</a>）。</li>
+      <li><b style="color:var(--ink)">初回起動はスマホ相当（390×820）</b>。2回目以降は前回のサイズを復元する（<a href="#responsive" style="color:var(--accent)">11章</a>）。</li>
+    </ul>
+  </div>
+
+  <div class="card p-5 mb-8 toc">
+    <h3 class="mb-3">目次</h3>
+    <ol class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm list-decimal list-inside">
+      <li><a href="#arch">システム構成</a></li>
+      <li><a href="#files">ファイル構成</a></li>
+      <li><a href="#screens">画面一覧・遷移</a></li>
+      <li><a href="#scr01">ダッシュボード（SCR-01）</a></li>
+      <li><a href="#scr02">タスク一覧（SCR-02）</a></li>
+      <li><a href="#scr03">詳細シート（SCR-03）</a></li>
+      <li><a href="#scr04">ジャンル・カテゴリ管理（SCR-04）</a></li>
+      <li><a href="#scr05">カレンダー（SCR-05）</a></li>
+      <li><a href="#smartlist">スマートリスト判定ロジック</a></li>
+      <li><a href="#filter">検索・絞り込み</a></li>
+      <li><a href="#responsive">レスポンシブ設計</a></li>
+      <li><a href="#api">API設計</a></li>
+      <li><a href="#csv">CSVインポート</a></li>
+      <li><a href="#code">実装サンプル</a></li>
+      <li><a href="#build">起動・配布</a></li>
+      <li><a href="#diff">旧実装からの変更点</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 構成 -->
+  <section id="arch" class="mb-10">
+    <h2 class="mb-3">1. システム構成</h2>
+    <div class="card p-5 mb-3 overflow-x-auto">
+      <svg viewBox="0 0 860 290" class="w-full min-w-[700px]" font-family="Noto Sans JP, sans-serif">
+        <defs><marker id="ar" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#18222E"/></marker></defs>
+        <rect x="20" y="20" width="820" height="250" rx="14" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="40" y="45" font-size="12" fill="#767A73">1プロセス（python app.py）。ネットワークを一切使わない</text>
+
+        <rect x="50" y="60" width="310" height="185" rx="10" fill="#F6F7F4" stroke="#007AFF" stroke-width="2"/>
+        <text x="65" y="85" font-size="14" font-weight="700">pywebview ウィンドウ</text>
+        <text x="65" y="105" font-size="11" fill="#767A73">Windows: WebView2 (Edge Chromium)</text>
+        <rect x="68" y="120" width="274" height="108" rx="8" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="83" y="142" font-size="12" font-weight="700">フロントエンド（web/）</text>
+        <text x="83" y="162" font-size="11" fill="#767A73">index.html / calendar.html</text>
+        <text x="83" y="180" font-size="11" fill="#767A73">app.css / app.js（素のJS）</text>
+        <text x="83" y="204" font-size="11" fill="#007AFF">window.pywebview.api.list_tasks(…)</text>
+        <text x="83" y="220" font-size="10" fill="#767A73">file:// で読み込む（HTTPではない）</text>
+
+        <path d="M365 140 L500 140" stroke="#18222E" stroke-width="2" marker-end="url(#ar)"/>
+        <path d="M500 175 L365 175" stroke="#18222E" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="372" y="133" font-size="10" fill="#767A73">プロセス内呼び出し</text>
+        <text x="385" y="193" font-size="10" fill="#767A73">JSON（Promise）</text>
+
+        <rect x="505" y="60" width="305" height="185" rx="10" fill="#F6F7F4" stroke="#18222E" stroke-width="2"/>
+        <text x="520" y="85" font-size="14" font-weight="700">Python（js_api）</text>
+        <rect x="523" y="98" width="270" height="42" rx="8" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="538" y="117" font-size="12" font-weight="700">backend/api.py</text>
+        <text x="538" y="133" font-size="11" fill="#767A73">公開メソッド・入力検証</text>
+        <rect x="523" y="146" width="270" height="42" rx="8" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="538" y="165" font-size="12" font-weight="700">backend/repository.py</text>
+        <text x="538" y="181" font-size="11" fill="#767A73">SQL実行・DTO変換</text>
+        <rect x="523" y="194" width="270" height="34" rx="8" fill="#FFFFFF" stroke="#007AFF"/>
+        <text x="538" y="216" font-size="12" font-weight="700">data/todo.db（SQLite）</text>
+      </svg>
+    </div>
+
+    <div class="card p-5 text-sm space-y-3">
+      <div>
+        <h3 class="mb-1">技術選定と理由</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:150px">層</th><th style="width:220px">採用</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr><td>デスクトップ枠</td><td class="mono">pywebview 4.x</td><td>Electronと違いランタイム同梱が不要。WindowsはOS標準のWebView2を使うため配布サイズが小さい</td></tr>
+            <tr><td>フロント⇔Python</td><td class="mono">js_api（プロセス内呼び出し）</td><td>HTTPサーバを立てない。下の枠を参照</td></tr>
+            <tr><td>DB</td><td class="mono">sqlite3（標準）</td><td>旧実装の better-sqlite3 と同じSQLite。DBファイルをそのまま読める。追加依存なし</td></tr>
+            <tr><td>フロント</td><td>素のHTML/CSS/JS</td><td>移植元 <code class="inl">public/electron-app.*</code> が素のJS。フレームワーク導入は移植の変更点を増やすだけなので行わない</td></tr>
+            <tr><td>アイコン</td><td>インラインSVG</td><td>移植元は Phosphor Icons を unpkg から読んでいた。オフライン動作のため自前のSVGに置き換える</td></tr>
+          </tbody>
+        </table>
+        <p class="mt-2" style="color:var(--muted)">外部ライブラリは <b style="color:var(--ink)">pywebview のみ</b>。Flask も HTTP サーバも使わない。</p>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">HTTPサーバ方式を採らない理由</b>
+        <p class="mt-1" style="color:var(--muted)">移植元は Express でポート3000を開き、Electron からもブラウザからも同じ画面を開ける構成だった。本アプリは<b style="color:var(--ink)">アプリとしてのみ動けばよく、ブラウザで開く必要がない</b>。ローカルHTTPサーバを立てると、それだけのために次の面倒を抱え込む。</p>
+        <ul class="list-disc list-inside mt-2 space-y-1" style="color:var(--muted)">
+          <li>ポートの確保と衝突回避（移植元は3000固定で、塞がっていると起動できなかった）</li>
+          <li>同じPC上の他プロセスからAPIを叩けてしまう。認証を持たないため、起動している間は無防備になる</li>
+          <li>プロセス内で完結する処理に、シリアライズ＋TCP往復という余計な段を挟むことになる</li>
+        </ul>
+        <p class="mt-2" style="color:var(--muted)">js_api なら <code class="inl">webview.create_window(..., js_api=Api())</code> だけで、フロントから <code class="inl">window.pywebview.api.&lt;メソッド&gt;()</code> を Promise として呼べる。<b style="color:var(--ink)">ポートもバインドも存在しない</b>ため、上の3点がまとめて消える。</p>
+      </div>
+
+      <div>
+        <h3 class="mb-1">js_api の実装上の注意</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:190px">項目</th><th>内容</th></tr></thead>
+          <tbody>
+            <tr><td>APIの準備完了を待つ</td><td><code class="inl">window.pywebview</code> はページ読込直後には存在しない。<code class="inl">DOMContentLoaded</code> ではなく <b style="color:var(--ink)"><code class="inl">pywebviewready</code> イベント</b>で初期化する。ここを間違えると起動直後だけ動かない</td></tr>
+            <tr><td>呼び出しスレッド</td><td>各呼び出しはUIスレッドとは別のスレッドで実行される。SQLite接続は<b style="color:var(--ink)">呼び出しごとに開いて閉じる</b>（<a href="db_design.html#sqlite" style="color:var(--accent)">DB設計書 11章</a>）</td></tr>
+            <tr><td>引数・戻り値</td><td>JSONシリアライズ可能なものだけ。<code class="inl">date</code> や <code class="inl">Decimal</code> をそのまま返さない</td></tr>
+            <tr><td>エラー</td><td>例外の伝わり方は版に依存するため頼らない。<b style="color:var(--ink)">業務エラーは <code class="inl">{"error": "…"}</code> を返り値として返す</b>と決め、JS側の薄いラッパーで <code class="inl">throw</code> する（<a href="#api" style="color:var(--accent)">12章</a>）</td></tr>
+            <tr><td>HTMLの読込</td><td><code class="inl">web/index.html</code> を相対パスで指定する。PyInstallerで固める場合は <code class="inl">sys._MEIPASS</code> 起点の絶対パスに解決する</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">引き換えに失うもの</b>
+        <p class="mt-1" style="color:var(--muted)">ブラウザの開発者ツールでフロントだけを単体デバッグする、という手が使えなくなる。設計上はそれで構わない ─ 画面の検証は <code class="inl">.doc/mock/</code> の画面モックで行う。モックはダミーデータだけで動く静的ファイルであり、<b style="color:var(--ink)">アプリ本体の機能ではない</b>。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 ファイル構成 -->
+  <section id="files" class="mb-10">
+    <h2 class="mb-3">2. ファイル構成</h2>
+    <pre>C:\Python3\todo\
+├─ app.py                  # エントリポイント。Api を渡してウィンドウを開くだけ
+├─ requirements.txt        # pywebview のみ
+├─ backend\
+│  ├─ __init__.py
+│  ├─ config.py            # パス定数・定数定義（DATA_DIR / TEMP_DIR / 既定ジャンル）
+│  ├─ db.py                # 接続管理・DDL適用・スキーマ版管理・初期データ投入
+│  ├─ api.py               # js_api として公開するクラス（フロントの窓口）
+│  ├─ repository.py        # SQL実行層（genres / categories / tasks）
+│  ├─ smartlist.py         # スマートリストの期間計算と抽出条件生成
+│  ├─ filters.py           # 絞り込み条件 → WHERE句の組み立て
+│  └─ csv_import.py        # temp配下のCSV取込
+├─ web\                    # フロントエンド（pywebviewが file:// で読む）
+│  ├─ index.html           # SCR-01〜04（1ページに同居）
+│  ├─ calendar.html        # SCR-05
+│  ├─ css\app.css
+│  ├─ js\icons.js          # インラインSVGアイコン定義
+│  ├─ js\api.js            # window.pywebview.api の薄いラッパー
+│  ├─ js\app.js            # SCR-01〜04 のロジック
+│  └─ js\calendar.js       # SCR-05 のロジック
+├─ data\                   # 自動生成
+│  ├─ todo.db
+│  └─ backup\              # 起動時の自動バックアップ（世代管理）
+├─ temp\                   # CSV取込用フォルダ
+├─ tools\
+│  └─ migrate_from_old.py  # 旧 tasks.db からの移行スクリプト（手動実行、1回限り）
+├─ .doc\                   # 本設計書一式（mock\ に操作できる画面モック）
+└─ start.bat               # 起動用バッチ
+
+<span style="color:#A7B5AB">対応関係（移植元 → 移植先）</span>
+  server.js（Express）     → backend\api.py + repository.py + db.py + csv_import.py
+  public\electron-app.html → web\index.html
+  public\electron-app.js   → web\js\app.js
+  public\electron-app.css  → web\css\app.css
+  public\calendar.html     → web\calendar.html + web\js\calendar.js
+  main.js / preload.js     → app.py（pywebviewが代替）
+  Phosphor Icons (CDN)     → web\js\icons.js（インラインSVG）
+  public\index.html        → 破棄（ブラウザ版UI。アプリのみで動けばよいため）
+  start-server.bat         → 破棄（ブラウザ起動用。HTTPサーバを持たないため不要）
+  stop-server.bat          → 破棄（同上。ウィンドウを閉じれば終了する）
+  public\add-task.html     → 破棄（FAB＋詳細シートに統合）</pre>
+  </section>
+
+  <!-- 3 画面一覧 -->
+  <section id="screens" class="mb-10">
+    <h2 class="mb-3">3. 画面一覧・遷移</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">移植元と同じく<b style="color:var(--ink)">単一カラム</b>を基本とする。ダッシュボードとタスク一覧は同一ページ内の表示切替。<b style="color:var(--ink)">カレンダーだけは別ウィンドウ</b>として開き、ページ遷移は行わない。</p>
+    <div class="card p-4 mb-3 text-sm" style="border-left:4px solid var(--accent)">
+      <b>ウィンドウ幅で構成が変わる</b>
+      <p class="mt-1" style="color:var(--muted)">〜1023px は上記のとおり単一カラム（中央寄せ最大640px、820px以上で720px）で、SCR-03 は下からせり上がるシートになる。<b style="color:var(--ink)">1024px以上では3カラムに組み替わり</b>、SCR-01 が常設サイドバー、SCR-03 が<b style="color:var(--ink)">右の固定パネル</b>になる。詳細は <a href="#responsive" style="color:var(--accent)">11章</a>。</p>
+    </div>
+    <div class="card overflow-x-auto mb-3">
+      <table>
+        <thead><tr><th style="width:90px">ID</th><th style="width:210px">画面名</th><th style="width:180px">実体</th><th>概要</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">SCR-01</td><td>ダッシュボード</td><td class="mono">index.html（既定）</td><td>スマートカード11種＋ジャンル一覧</td></tr>
+          <tr><td class="mono">SCR-02</td><td>タスク一覧</td><td class="mono">index.html（切替）</td><td>選んだリストのタスク。戻るボタンでSCR-01へ</td></tr>
+          <tr><td class="mono">SCR-03</td><td>詳細シート</td><td class="mono">index.html（下から出る）</td><td>1件の編集・新規作成・削除</td></tr>
+          <tr><td class="mono">SCR-04</td><td>ジャンル・カテゴリ管理</td><td class="mono">index.html（モーダル）</td><td>ジャンルとカテゴリのCRUD</td></tr>
+          <tr><td class="mono">SCR-05</td><td>カレンダー</td><td class="mono">calendar.html（<b>別ウィンドウ</b>）</td><td>ガントチャート形式の日程表示</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card p-5 overflow-x-auto">
+      <svg viewBox="0 0 820 250" class="w-full min-w-[660px]" font-family="Noto Sans JP, sans-serif">
+        <defs><marker id="a2" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#767A73"/></marker></defs>
+
+        <rect x="40" y="25" width="190" height="56" rx="10" fill="#FFFFFF" stroke="#007AFF" stroke-width="2"/>
+        <text x="60" y="48" font-size="13" font-weight="700">SCR-01 ダッシュボード</text>
+        <text x="60" y="68" font-size="10" fill="#767A73">起動時の初期画面</text>
+
+        <rect x="320" y="25" width="180" height="56" rx="10" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="345" y="48" font-size="13" font-weight="700">SCR-02 タスク一覧</text>
+        <text x="345" y="68" font-size="10" fill="#767A73">同一ページ内で切替</text>
+
+        <rect x="590" y="25" width="180" height="56" rx="10" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="612" y="48" font-size="13" font-weight="700">SCR-03 詳細シート</text>
+        <text x="612" y="68" font-size="10" fill="#767A73">下から出るシート</text>
+
+        <rect x="40" y="165" width="190" height="56" rx="10" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="52" y="188" font-size="13" font-weight="700">SCR-04 ジャンル管理</text>
+        <text x="52" y="208" font-size="10" fill="#767A73">モーダル</text>
+
+        <rect x="320" y="165" width="180" height="56" rx="10" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="348" y="188" font-size="13" font-weight="700">SCR-05 カレンダー</text>
+        <text x="348" y="208" font-size="10" fill="#767A73">別ページ遷移</text>
+
+        <path d="M230 45 L320 45" stroke="#767A73" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="236" y="38" font-size="10" fill="#767A73">カード/ジャンル</text>
+        <path d="M320 65 L230 65" stroke="#767A73" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="245" y="78" font-size="10" fill="#767A73">戻る</text>
+
+        <path d="M500 53 L590 53" stroke="#767A73" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="505" y="46" font-size="10" fill="#767A73">行タップ / FAB</text>
+
+        <path d="M120 81 L120 165" stroke="#767A73" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="126" y="128" font-size="10" fill="#767A73">歯車</text>
+
+        <path d="M180 81 Q250 120 380 165" stroke="#767A73" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="245" y="128" font-size="10" fill="#767A73">カレンダーアイコン</text>
+
+        <path d="M600 81 Q560 140 490 165" stroke="#C9D0CA" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <text x="540" y="140" font-size="10" fill="#A7B0A8">バークリックで開く</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 4 SCR-01 -->
+  <section id="scr01" class="mb-10">
+    <h2 class="mb-3">4. ダッシュボード（SCR-01）</h2>
+    <div class="card p-4 mb-3 overflow-x-auto">
+      <svg viewBox="0 0 700 430" class="w-full min-w-[520px]" font-family="Noto Sans JP, sans-serif">
+        <rect x="170" y="10" width="360" height="410" rx="12" fill="#F2F2F7" stroke="#E4E5DE"/>
+
+        <!-- top bar -->
+        <rect x="186" y="24" width="230" height="28" rx="8" fill="#E3E3E8"/>
+        <circle cx="200" cy="38" r="5" fill="none" stroke="#8E8E93" stroke-width="1.5"/>
+        <text x="212" y="42" font-size="11" fill="#8E8E93">検索</text>
+        <rect x="422" y="24" width="28" height="28" rx="7" fill="#FFFFFF"/><text x="430" y="43" font-size="12" fill="#007AFF">≡</text>
+        <rect x="454" y="24" width="28" height="28" rx="7" fill="#FFFFFF"/><text x="462" y="43" font-size="12" fill="#007AFF">▤</text>
+        <rect x="486" y="24" width="28" height="28" rx="7" fill="#FFFFFF"/><text x="494" y="43" font-size="12" fill="#007AFF">✦</text>
+        <text x="540" y="43" font-size="10" fill="#767A73">検索 / 絞り込み / カレンダー / 管理</text>
+
+        <!-- smart cards -->
+        <g>
+          <rect x="186" y="64" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="194" y="72" width="20" height="20" rx="6" fill="#FF3B30"/>
+          <text x="272" y="88" font-size="17" font-weight="700" text-anchor="end">1</text>
+          <text x="194" y="112" font-size="10" fill="#8E8E93">遅延</text>
+
+          <rect x="296" y="64" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="304" y="72" width="20" height="20" rx="6" fill="#007AFF"/>
+          <text x="382" y="88" font-size="17" font-weight="700" text-anchor="end">3</text>
+          <text x="304" y="112" font-size="10" fill="#8E8E93">今日</text>
+
+          <rect x="406" y="64" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="414" y="72" width="20" height="20" rx="6" fill="#FF9500"/>
+          <text x="492" y="88" font-size="17" font-weight="700" text-anchor="end">3</text>
+          <text x="414" y="112" font-size="10" fill="#8E8E93">明日</text>
+
+          <rect x="186" y="128" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="194" y="136" width="20" height="20" rx="6" fill="#FF3B30"/>
+          <text x="272" y="152" font-size="17" font-weight="700" text-anchor="end">5</text>
+          <text x="194" y="176" font-size="10" fill="#8E8E93">今週</text>
+
+          <rect x="296" y="128" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="304" y="136" width="20" height="20" rx="6" fill="#5856D6"/>
+          <text x="382" y="152" font-size="17" font-weight="700" text-anchor="end">6</text>
+          <text x="304" y="176" font-size="10" fill="#8E8E93">来週</text>
+
+          <rect x="406" y="128" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="414" y="136" width="20" height="20" rx="6" fill="#00C7BE"/>
+          <text x="492" y="152" font-size="17" font-weight="700" text-anchor="end">13</text>
+          <text x="414" y="176" font-size="10" fill="#8E8E93">今月</text>
+
+          <rect x="186" y="192" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="194" y="200" width="20" height="20" rx="6" fill="#FF9500"/>
+          <text x="272" y="216" font-size="17" font-weight="700" text-anchor="end">2</text>
+          <text x="194" y="240" font-size="10" fill="#8E8E93">保留</text>
+
+          <rect x="296" y="192" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="304" y="200" width="20" height="20" rx="6" fill="#34C759"/>
+          <text x="382" y="216" font-size="17" font-weight="700" text-anchor="end">4</text>
+          <text x="304" y="240" font-size="10" fill="#8E8E93">実行済</text>
+
+          <rect x="406" y="192" width="102" height="56" rx="10" fill="#FFF"/>
+          <rect x="414" y="200" width="20" height="20" rx="6" fill="#8E8E93"/>
+          <text x="492" y="216" font-size="17" font-weight="700" text-anchor="end">17</text>
+          <text x="414" y="240" font-size="10" fill="#8E8E93">すべて</text>
+        </g>
+        <text x="540" y="100" font-size="10" fill="#767A73">スマートカード（11種）</text>
+        <text x="540" y="116" font-size="10" fill="#767A73">幅に応じて 3 → 2 列</text>
+
+        <!-- genre list -->
+        <text x="186" y="276" font-size="14" font-weight="700">ジャンル</text>
+        <rect x="186" y="286" width="322" height="118" rx="10" fill="#FFF"/>
+        <rect x="196" y="294" width="20" height="20" rx="6" fill="#007AFF"/>
+        <text x="226" y="309" font-size="11">プライベート</text>
+        <text x="480" y="309" font-size="11" fill="#8E8E93" text-anchor="end">4  ›</text>
+        <line x1="186" y1="322" x2="508" y2="322" stroke="#E4E5DE"/>
+        <text x="240" y="337" font-size="10" fill="#3C3C43">手続き</text>
+        <text x="480" y="337" font-size="10" fill="#8E8E93" text-anchor="end">2  ›</text>
+        <line x1="186" y1="348" x2="508" y2="348" stroke="#E4E5DE"/>
+        <rect x="196" y="356" width="20" height="20" rx="6" fill="#FF9500"/>
+        <text x="226" y="371" font-size="11">学習</text>
+        <text x="480" y="371" font-size="11" fill="#8E8E93" text-anchor="end">4  ›</text>
+        <text x="540" y="310" font-size="10" fill="#767A73">行＝ジャンル絞り込み</text>
+        <text x="540" y="326" font-size="10" fill="#767A73">› ＝カテゴリ展開</text>
+
+        <circle cx="492" cy="392" r="18" fill="#007AFF"/>
+        <text x="486" y="398" font-size="17" fill="#fff">＋</text>
+      </svg>
+    </div>
+
+    <div class="card p-5 text-sm space-y-4">
+      <div>
+        <h3 class="mb-1">4-1. 上部バー</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:170px">要素</th><th>仕様</th></tr></thead>
+          <tbody>
+            <tr><td>検索欄</td><td>内容とメモの部分一致。入力から250msデバウンス。ダッシュボード表示中に入力すると、母集合「すべて」のタスク一覧（SCR-02）へ自動で切り替わる。入力があると右端に消去ボタンが出る</td></tr>
+            <tr><td>絞り込みボタン</td><td>押すと下に絞り込みパネルが開く（<a href="#filter" style="color:var(--accent)">10章</a>）。開いている間はボタンが反転表示</td></tr>
+            <tr><td>カレンダーボタン</td><td>SCR-05 へ遷移</td></tr>
+            <tr><td>管理ボタン</td><td>SCR-04 のモーダルを開く</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3 class="mb-1">4-2. スマートカード</h3>
+        <p style="color:var(--muted)">11種（<a href="db_design.html#codes" style="color:var(--accent)">DB設計書 8章</a>）。1枚＝色付き角丸アイコン＋件数＋ラベル。タップでそのリストのSCR-02へ。</p>
+        <ul class="list-disc list-inside space-y-1 mt-1" style="color:var(--muted)">
+          <li>件数は <code class="inl">counts()</code> で一括取得する。11回に分けて叩かない。</li>
+          <li>タスクを更新するたびに再取得する（件数がずれたまま残ると信用されなくなる）。<b style="color:var(--ink)">一覧側だけ再描画して済ませない</b> ─ 1024px以上ではサイドバーが出たままなので、件数が古いことがすぐ目に付く。</li>
+          <li>0件のカードも隠さず出す。移植元と同じく、0であること自体が情報になる。</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-1">4-3. ジャンル一覧</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:170px">要素</th><th>仕様</th></tr></thead>
+          <tbody>
+            <tr><td>並び</td><td><code class="inl">sort_order</code> 昇順、同値は <code class="inl">id</code> 昇順</td></tr>
+            <tr><td>行の表示</td><td>ジャンル色の角丸アイコン＋名前＋未完了件数（<code class="inl">status ≠ completed</code>）</td></tr>
+            <tr><td>行タップ</td><td>そのジャンルのSCR-02へ</td></tr>
+            <tr><td>右端の ›</td><td>配下カテゴリを開閉する。<b>行タップとは別の当たり判定</b>にし、イベントの伝播を止める</td></tr>
+            <tr><td>カテゴリ行</td><td>インデントして表示。タップでそのカテゴリのSCR-02へ</td></tr>
+          </tbody>
+        </table>
+        <div class="p-3 rounded-lg mt-2" style="background:#FFF4E6;border:1px solid #FFD9A8">
+          <b style="color:var(--flag)">移植元との差</b>　移植元は「顧客リスト」のフラットな一覧だった。本設計では<b>ジャンル＞カテゴリの2階層</b>になるため、行内に開閉トグルが増える。選択状態は <code class="inl">{genre_id, category_id}</code> の組で保持し、カテゴリ選択時はジャンルも暗黙に確定する。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 SCR-02 -->
+  <section id="scr02" class="mb-10">
+    <h2 class="mb-3">5. タスク一覧（SCR-02）</h2>
+    <div class="card p-5 text-sm space-y-4">
+      <div>
+        <h3 class="mb-1">5-1. ヘッダ</h3>
+        <p style="color:var(--muted)">左に「‹ リスト」の戻るボタン、中央にリスト名、右に件数。戻るとSCR-01へ復帰する。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">5-2. 行の構成</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:150px">位置</th><th>内容</th></tr></thead>
+          <tbody>
+            <tr><td>左</td><td>丸いチェック。未完了＝灰の輪郭／完了＝青地にチェック。<b style="color:var(--ink)">完了かどうかだけ</b>を表す</td></tr>
+            <tr><td>本文</td><td>タスク内容。完了行は打消し線＋淡色</td></tr>
+            <tr><td>メタ行</td><td>ジャンル名バッジ（ジャンル色の地）／カテゴリ名／日付／保留バッジ。幅が足りなければ折り返す</td></tr>
+            <tr><td>右</td><td>トグルを2つ並べる。<b style="color:var(--ink)">左が保留（時計）、右がフラグ（旗）</b>。どちらもタップで即反映し、有効時はオレンジになる</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3 class="mb-1">5-3. 表示と操作</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:170px">項目</th><th>仕様</th></tr></thead>
+          <tbody>
+            <tr><td>日付表示</td><td>本日・翌日・前日は「今日」「明日」「昨日」と語で出す。それ以外は <code class="inl">M/D</code>。期間タスクは <code class="inl">M/D 〜 M/D</code>。遅延している日付は<span style="color:var(--danger)">赤の太字</span></td></tr>
+            <tr><td>並び順</td><td>未完了 → 保留 → 完了、その中で <code class="inl">no</code> 昇順。<b>ただし「実行済」だけは <code class="inl">completed_at</code> 降順</b>（最近終えた順）</td></tr>
+            <tr><td>チェック操作</td><td>即座に <code class="inl">update_task</code>。完了にする時は <code class="inl">completed_at</code> に現在時刻、戻す時は空文字。楽観的にUIを先行更新し、失敗時はロールバックしてトーストを出す</td></tr>
+            <tr><td><b>保留トグル</b></td><td>保留中なら <code class="inl">active</code> へ、そうでなければ <code class="inl">pending</code> へ。<b style="color:var(--ink)">完了中に押した場合は完了を解いて保留にし、<code class="inl">completed_at</code> を空にする</b>。詳細シートを開かずに「いま手が付けられない」を記録するための導線</td></tr>
+            <tr><td>フラグトグル</td><td><code class="inl">priority</code> を反転する</td></tr>
+            <tr><td>行タップ</td><td>SCR-03 の詳細を開く。<b style="color:var(--ink)">トグル2つは当たり判定を分け</b>、押しても詳細が開かないようにする</td></tr>
+            <tr><td>FAB</td><td>右下固定。押すと新規作成モードでSCR-03が開く。ジャンル・カテゴリは現在の絞り込みを初期値とする</td></tr>
+            <tr><td>0件</td><td>カード内に「該当するタスクはありません」を出す。カード自体は消さない</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">保留をどこで表すか</b>
+        <p class="mt-1" style="color:var(--muted)">保留は<b style="color:var(--ink)">メタ行のバッジ（文字）とトグル（操作）の2か所だけ</b>で表す。丸印は完了かどうかに専念させ、保留の色を混ぜない ─ 丸印をタップすると完了になるのに保留の色が出ていると、何を押したのか分からなくなる。役割を1つずつに割り当てる。</p>
+      </div>
+
+      <div>
+        <h3 class="mb-1">5-4. 適用中の絞り込み条件</h3>
+        <p style="color:var(--muted)">絞り込みが効いている間、ヘッダ直下に条件をチップで並べる。各チップの <b>×</b> でその条件だけを外せる。<b style="color:var(--ink)">条件が見えないまま件数が少ない状態</b>は「データが消えた」と誤解される原因になるため、必ず可視化する。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 SCR-03 -->
+  <section id="scr03" class="mb-10">
+    <h2 class="mb-3">6. 詳細シート（SCR-03）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">移植元と同じ「キャンセル／詳細／完了」のヘッダと、iOS風のグループ化された行で構成する。<b style="color:var(--ink)">出方だけがウィンドウ幅で変わる</b>（中身と操作は共通）。</p>
+    <div class="card overflow-x-auto mb-3">
+      <table>
+        <thead><tr><th style="width:170px">幅</th><th style="width:170px">出方</th><th>挙動</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">〜 1023px</td><td>下からせり上がるシート</td><td>背後にオーバーレイを敷き、一覧に重ねる。スマホ相当の狭いウィンドウ向け</td></tr>
+          <tr><td class="mono">1024px 〜</td><td><b>右サイドの固定パネル</b></td><td>3カラムの右列に常設。オーバーレイは出さず、一覧を見ながら編集できる。未選択時はプレースホルダを出して列幅を保つ</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card overflow-x-auto mb-3">
+      <table>
+        <thead><tr><th style="width:150px">項目</th><th style="width:130px">入力</th><th>仕様</th></tr></thead>
+        <tbody>
+          <tr><td>タスク内容</td><td>textarea</td><td>必須。空のまま「完了」を押すとトーストで警告し、保存しない</td></tr>
+          <tr><td>結果メモ</td><td>textarea</td><td>任意。自由記述</td></tr>
+          <tr><td>期限／開始日</td><td>date</td><td>任意。期間指定がOFFの時はラベルが「期限」、ONの時は「開始日」</td></tr>
+          <tr><td>期間トグル</td><td>ボタン</td><td>日付行の右端。ONで終了日の行が現れる。OFFに戻すと <code class="inl">date_end</code> を空文字で保存する</td></tr>
+          <tr><td>終了日</td><td>date</td><td>期間指定ON時のみ。<code class="inl">date_start ≤ date_end</code> を検証し、違反時は保存せずトースト</td></tr>
+          <tr><td>フラグ</td><td>iOSトグル</td><td>ON=<code class="inl">priority 1</code></td></tr>
+          <tr><td>ジャンル</td><td>select</td><td>必須。変更するとカテゴリselectを再構築し、選択値をクリアする</td></tr>
+          <tr><td>カテゴリ</td><td>select</td><td>任意。先頭に「なし」。選択中ジャンル配下のみ表示</td></tr>
+          <tr><td>ステータス</td><td>select</td><td>未完了／保留／完了</td></tr>
+          <tr><td>削除</td><td>ボタン</td><td>シート最下部に赤字で配置。押すと<b>その場で確認ボックス</b>（やめる／削除する）に差し替わる。新規作成時は非表示</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card p-4 text-sm mb-3" style="border-left:4px solid var(--flag)">
+      <b>削除の確認もシートの中で行う</b>
+      <p class="mt-1" style="color:var(--muted)">SCR-04 と同じ2段階の確認ボックスを使う（<a href="#scr04" style="color:var(--accent)">7章</a>）。<code class="inl">confirm()</code> はOSのダイアログが出てアプリの見た目から浮くうえ、確認の見せ方が画面ごとに変わることになる。</p>
+    </div>
+
+    <div class="card p-4 text-sm" style="border-left:4px solid var(--flag)">
+      <b>閉じ方は3通り用意する</b>
+      <p class="mt-1" style="color:var(--muted)">「キャンセル」ボタン、背後のオーバーレイのタップ、<code class="inl">Escape</code> キー。ボトムシートはデスクトップでは閉じ方が分かりにくいため、キーボードとオーバーレイの両方を必ず効かせる。</p>
+    </div>
+  </section>
+
+  <!-- 7 SCR-04 -->
+  <section id="scr04" class="mb-10">
+    <h2 class="mb-3">7. ジャンル・カテゴリ管理（SCR-04）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">モーダルの中に<b style="color:var(--ink)">一覧ビューと編集ビューの2枚</b>を持ち、<code class="inl">data-mview</code> で切り替える。ブラウザの <code class="inl">prompt()</code> / <code class="inl">confirm()</code> は使わない（理由は下の枠）。</p>
+
+    <div class="card p-5 text-sm space-y-4 mb-3">
+      <div>
+        <h3 class="mb-1">7-1. 一覧ビュー</h3>
+        <p style="color:var(--muted)">左にジャンル、右に選択中ジャンル配下のカテゴリ（移植元の「顧客・カテゴリ管理」と同じ2パネル構成）。幅が狭い時は縦積みになる。</p>
+        <table class="mt-2">
+          <thead><tr><th style="width:150px">行の要素</th><th>仕様</th></tr></thead>
+          <tbody>
+            <tr><td>↑ ↓</td><td><b style="color:var(--ink)">並び替え。</b>1つ動かすたびに新しいID配列を送り、<code class="inl">sort_order</code> を1から振り直す。端の行はボタンを <code class="inl">disabled</code> にする</td></tr>
+            <tr><td>色ドット／名前／件数</td><td>ジャンル行のみ色ドットを出す。件数は表示可否を反映した値（<a href="#filter" style="color:var(--accent)">10章</a>）</td></tr>
+            <tr><td>鉛筆</td><td>編集ビューへ切り替える</td></tr>
+            <tr><td>行本体（ジャンル）</td><td>選択して右のカテゴリ一覧を切り替える</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3 class="mb-1">7-2. 編集ビュー</h3>
+        <p style="color:var(--muted)">ヘッダが「‹ 戻る ／ ◯◯を編集 ／ 保存」に変わる。削除もここに置く ─ 一覧の行にボタンを並べるより、対象を1つに絞ってから消す方が誤操作が減る。</p>
+        <table class="mt-2">
+          <thead><tr><th style="width:150px">項目</th><th style="width:110px">ジャンル</th><th>カテゴリ</th></tr></thead>
+          <tbody>
+            <tr><td>名前</td><td>○</td><td>○（Enterでも保存）</td></tr>
+            <tr><td>色</td><td>○（8色のパレットから選ぶ）</td><td>—（欄ごと隠す）</td></tr>
+            <tr><td>件数の表示</td><td>「タスクは◯件です」</td><td>同左＋削除時の挙動</td></tr>
+            <tr><td>削除</td><td>タスクが残っていると<b>ボタンを無効化</b>し、理由を上に出す</td><td>常に可。タスクは「なし」になる</td></tr>
+          </tbody>
+        </table>
+        <p class="mt-2" style="color:var(--muted)">名前の重複などで保存に失敗したときは<b style="color:var(--ink)">編集ビューに留まる</b>。一覧へ戻してしまうと、入力し直しになる。</p>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">prompt() / confirm() を使わない</b>
+        <p class="mt-1" style="color:var(--muted)">WebView2 はスクリプトダイアログを出せるが、出るのは<b style="color:var(--ink)">OSのそっけないダイアログ</b>で、アプリの見た目から浮く。<code class="inl">prompt()</code> は返るまでJSスレッドを止めるため、呼び出し側の処理も固まる。入力・確認はすべてモーダル内で行う。</p>
+        <p class="mt-2" style="color:var(--muted)">削除の確認は、削除ボタンをその場で確認ボックス（「やめる」「削除する」）に差し替える2段階にする。別のダイアログを重ねない。</p>
+      </div>
+    </div>
+
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:190px">操作</th><th style="width:270px">API</th><th>備考</th></tr></thead>
+        <tbody>
+          <tr><td>ジャンル追加</td><td class="mono">create_genre(name, color)</td><td>名前重複はエラー。色はパレット順に自動割当</td></tr>
+          <tr><td>ジャンル改名・色変更</td><td class="mono">update_genre(id, body)</td><td>ID参照のためタスク側の更新は不要</td></tr>
+          <tr><td>ジャンル削除</td><td class="mono">delete_genre(id)</td><td>配下にタスクがあれば件数付きのエラー（DB側は <code class="inl">RESTRICT</code>）。配下カテゴリは <code class="inl">CASCADE</code> で消える</td></tr>
+          <tr><td><b>ジャンル並び替え</b></td><td class="mono">reorder_genres(ids)</td><td>ID配列を受け取り <code class="inl">sort_order</code> を一括更新</td></tr>
+          <tr><td>カテゴリ追加</td><td class="mono">create_category(genre_id, name)</td><td>同一ジャンル内の重複はエラー</td></tr>
+          <tr><td>カテゴリ改名</td><td class="mono">update_category(id, name)</td><td>—</td></tr>
+          <tr><td>カテゴリ削除</td><td class="mono">delete_category(id)</td><td>該当タスクは <code class="inl">category_id = NULL</code> になる</td></tr>
+          <tr><td><b>カテゴリ並び替え</b></td><td class="mono">reorder_categories(genre_id, ids)</td><td><code class="inl">genre_id</code> も条件に入れ、他ジャンルのIDを渡されても書き換わらないようにする</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 8 SCR-05 -->
+  <section id="scr05" class="mb-10">
+    <h2 class="mb-3">8. カレンダー（SCR-05）</h2>
+    <div class="card p-5 text-sm space-y-3">
+      <p>ガントチャート形式。左列にタスク名、右に日付を横スクロールする帯を並べ、<code class="inl">date_start</code>〜<code class="inl">date_end</code> の範囲をバーで描画する（移植元 <code class="inl">calendar.html</code> の構造を踏襲）。</p>
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">別ウィンドウで開く</b>
+        <p class="mt-1" style="color:var(--muted)">カレンダーは横に長く、一覧と並べて見たい場面が多い。同じウィンドウでページ遷移すると<b style="color:var(--ink)">一覧を見ながら日程を確認できない</b>ため、<code class="inl">open_calendar()</code> で別ウィンドウ（既定 1040×720）を作る。</p>
+        <ul class="list-disc list-inside mt-2 space-y-1" style="color:var(--muted)">
+          <li>既に開いていれば新しく作らず<b style="color:var(--ink)">前面に出す</b>。閉じられたら <code class="inl">events.closed</code> で参照を捨てる。</li>
+          <li>同じ <code class="inl">Api</code> インスタンスを <code class="inl">js_api</code> として渡す。窓ごとに別インスタンスにすると、どちらの窓を開いているかを持てなくなる。</li>
+          <li>左上は「戻る」ではなく<b style="color:var(--ink)">「閉じる」</b>。<code class="inl">close_calendar()</code> がウィンドウを破棄する。</li>
+        </ul>
+      </div>
+      <table>
+        <thead><tr><th style="width:190px">要素</th><th>仕様</th></tr></thead>
+        <tbody>
+          <tr><td>表示範囲</td><td>既定は本日の前後30日（計61日）。1日＝34px</td></tr>
+          <tr><td>バー</td><td>ジャンルの <code class="inl">color</code> で塗る。単日タスク（<code class="inl">date_end</code> 空）は1日分の幅。完了は不透明度を落とす</td></tr>
+          <tr><td>日付なしタスク</td><td>カレンダーには表示しない（<code class="inl">date_start</code> が空の行は取得対象外）</td></tr>
+          <tr><td>本日</td><td>縦列をハイライト。「今日」ボタンで本日位置へスクロール</td></tr>
+          <tr><td>土日</td><td>列の背景を薄く色分けする</td></tr>
+          <tr><td>絞り込み</td><td>ジャンルとステータス（すべて／未完了／保留／完了）</td></tr>
+          <tr><td>ツールチップ</td><td>バーホバーで内容・ジャンル・カテゴリ・期間・ステータスを表示</td></tr>
+          <tr><td>クリック</td><td><code class="inl">focus_task(id)</code> で<b>メインウィンドウを前面に出し</b>、そのタスクの詳細を開く。Python側が <code class="inl">evaluate_js</code> でメイン側の <code class="inl">window.openTaskById()</code> を呼ぶ</td></tr>
+        </tbody>
+      </table>
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">左右2列のスクロール同期</b>
+        <p class="mt-1" style="color:var(--muted)">左のタスク名列は <code class="inl">overflow: hidden</code> のため <code class="inl">scrollTop</code> を代入しても動かない。右側のスクロール量を受けて <code class="inl">transform: translateY()</code> で動かす。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 smartlist -->
+  <section id="smartlist" class="mb-10">
+    <h2 class="mb-3">9. スマートリスト判定ロジック</h2>
+    <div class="card p-5 text-sm space-y-3 mb-3">
+      <div>
+        <h3 class="mb-1">期間の求め方</h3>
+        <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
+          <li>週は<b style="color:var(--ink)">月曜始まり</b>。<code class="inl">today - timedelta(days=today.weekday())</code> が今週の月曜、+6日が日曜。</li>
+          <li>「来週」は今週の月曜 +7日 〜 +13日。</li>
+          <li>「今月」は当月1日〜当月末日。末日は <code class="inl">calendar.monthrange(y, m)[1]</code> で求める。</li>
+          <li>「来月」は翌月1日〜翌月末日。12月の翌月は翌年1月として扱う。</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="mb-1">タスク期間と対象期間の重なり判定</h3>
+        <p style="color:var(--muted)">タスクの期間を <code class="inl">[s, e]</code>（<code class="inl">e</code> は <code class="inl">date_end</code> が空なら <code class="inl">s</code> と同値）、対象期間を <code class="inl">[from, to]</code> とすると、重なり条件は <code class="inl">s &lt;= to AND e &gt;= from</code>。日付はゼロ埋め <code class="inl">'YYYY-MM-DD'</code> のため文字列比較がそのまま日付比較になる。</p>
+        <pre class="mt-2">-- SQL上の表現
+WHERE date_start != ''
+  AND date_start &lt;= :to
+  AND (CASE WHEN date_end = '' THEN date_start ELSE date_end END) &gt;= :from</pre>
+      </div>
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">空文字の落とし穴</b>
+        <p class="mt-1" style="color:var(--muted)">日付未設定は <code class="inl">''</code>（空文字）で保持する。空文字はあらゆる日付文字列より辞書順で小さいため、<code class="inl">date_end &gt;= :from</code> をそのまま書くと未設定タスクが全期間にヒットしてしまう。必ず上記の <code class="inl">CASE</code> で単日に畳んでから比較し、かつ <code class="inl">date_start != ''</code> で未設定行を除外する。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">各リストの条件</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:130px">キー</th><th>条件</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">overdue</td><td><code class="inl">date_start != '' AND 終端日 &lt; 本日</code></td></tr>
+            <tr><td class="mono">today</td><td>重なり判定 <code class="inl">[本日, 本日]</code></td></tr>
+            <tr><td class="mono">tomorrow</td><td>重なり判定 <code class="inl">[本日+1, 本日+1]</code></td></tr>
+            <tr><td class="mono">this-week</td><td>重なり判定 <code class="inl">[今週月曜, 今週日曜]</code></td></tr>
+            <tr><td class="mono">next-week</td><td>重なり判定 <code class="inl">[来週月曜, 来週日曜]</code></td></tr>
+            <tr><td class="mono">this-month</td><td>重なり判定 <code class="inl">[当月1日, 当月末日]</code></td></tr>
+            <tr><td class="mono">next-month</td><td>重なり判定 <code class="inl">[翌月1日, 翌月末日]</code></td></tr>
+            <tr><td class="mono">all</td><td>条件なし</td></tr>
+            <tr><td class="mono">flagged</td><td><code class="inl">priority = 1</code></td></tr>
+            <tr><td class="mono">pending</td><td><code class="inl">status = 'pending'</code>（表示可否の対象外）</td></tr>
+            <tr><td class="mono">completed</td><td><code class="inl">status = 'completed'</code>（表示可否の対象外。並びは <code class="inl">completed_at DESC</code>）</td></tr>
+          </tbody>
+        </table>
+        <p class="mt-2" style="color:var(--muted)"><b style="color:var(--ink)">上の条件を評価する前に、保留済・実行済を落とす</b>（<a href="#filter" style="color:var(--accent)">10章</a>の表示可否）。そのため <code class="inl">overdue</code> と <code class="inl">flagged</code> の条件から <code class="inl">status</code> の判定が消えている。<code class="inl">pending</code> と <code class="inl">completed</code> の2つだけは、そのステータスを見るためのリストなので表示可否の対象外とする。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">日付の基準時刻（注意）</h3>
+        <p style="color:var(--muted)">「本日」は<b style="color:var(--ink)">サーバ側（Python）のローカル日付</b>で確定し、フロントでは計算しない。アプリを日をまたいで開きっぱなしにすると画面の「今日」が古くなるため、<code class="inl">GET /api/counts</code> のレスポンスに <code class="inl">today</code> を含め、フロントは前回値と変わっていたら一覧を再取得する。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 filter -->
+  <section id="filter" class="mb-10">
+    <h2 class="mb-3">10. 検索・絞り込み</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">移植元はキーワード検索しか持たなかった。本設計では上部バーの検索欄に加え、開閉式の絞り込みパネルを設ける。</p>
+
+    <div class="card overflow-x-auto mb-3">
+      <table>
+        <thead><tr><th style="width:150px">条件</th><th style="width:170px">パラメータ</th><th style="width:150px">UI</th><th>挙動</th></tr></thead>
+        <tbody>
+          <tr><td>キーワード</td><td class="mono">q</td><td>上部バーの検索欄</td><td><code class="inl">content</code> と <code class="inl">result</code> の部分一致（大文字小文字を無視）。250msデバウンス</td></tr>
+          <tr><td>ジャンル</td><td class="mono">genre_id</td><td>パネルのselect</td><td>変更するとカテゴリの選択肢を配下のみに絞り直し、カテゴリ選択をクリアする</td></tr>
+          <tr><td>カテゴリ</td><td class="mono">category_id</td><td>パネルのselect</td><td>ジャンル未選択時は全カテゴリを候補に出す</td></tr>
+                    <tr><td>フラグ</td><td class="mono">priority</td><td>パネルのselect</td><td>フラグあり／なし</td></tr>
+          <tr><td><b>保留済を表示</b></td><td class="mono">show_pending</td><td>パネルのcheckbox</td><td><b>既定OFF。</b>ONで保留のタスクも一覧に出す</td></tr>
+          <tr><td><b>実行済を表示</b></td><td class="mono">show_completed</td><td>パネルのcheckbox</td><td><b>既定OFF。</b>ONで完了のタスクも一覧に出す</td></tr>
+          <tr><td><b>期限の範囲</b></td><td class="mono">due_from, due_to</td><td>パネルの日付2つ（<code class="inl">〜</code> で連結）</td><td>タスクの期間がこの範囲と重なるもの。<b>2入力で1条件</b>として扱う</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card p-5 text-sm space-y-3">
+      <div>
+        <h3 class="mb-1">表示可否（保留済・実行済）</h3>
+        <p style="color:var(--muted)">既定では<b style="color:var(--ink)">未完了だけを見せる</b>。保留と完了はチェックを入れたぶんだけ足していく。終わったものと止まっているものが常に混ざっていると、「いま手を付けるもの」が埋もれるため。</p>
+        <table class="mt-2">
+          <thead><tr><th style="width:230px">チェックの状態</th><th>一覧に出るもの</th></tr></thead>
+          <tbody>
+            <tr><td>どちらもOFF（既定）</td><td>未完了のみ</td></tr>
+            <tr><td>保留済を表示 のみON</td><td>未完了 ＋ 保留</td></tr>
+            <tr><td>実行済を表示 のみON</td><td>未完了 ＋ 完了</td></tr>
+            <tr><td>どちらもON</td><td>すべて</td></tr>
+          </tbody>
+        </table>
+        <ul class="list-disc list-inside space-y-1 mt-2" style="color:var(--muted)">
+          <li><b style="color:var(--ink)">スマートリスト「保留」「実行済」は対象外。</b>そのステータスを見るためのリストなので、チェックを入れなくても中身が出る。ここを例外にしないと、既定で常に0件という無意味な状態になる。</li>
+          <li><b style="color:var(--ink)">スマートカードの件数にも同じ規則を効かせる。</b>一覧が11件なのにカードが17と出ていると、数字の方が信用されなくなる。ジャンル／カテゴリ行の件数も同様。</li>
+          <li>ステータスを選ぶプルダウンは<b style="color:var(--ink)">置かない</b>。同じことを2つのUIで指定できると、どちらが効いているのか分からなくなる。「保留だけ」「完了だけ」を見たい場合はスマートリストの方を使う。</li>
+          <li>この2つは範囲を<b style="color:var(--ink)">広げる</b>操作なので、次項の「母集合を すべて に切り替える」対象から外す。「今日」を見ながら完了分も見たいだけのときに、リストごと移動してしまうのは意図と違う。</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-1">期限の範囲</h3>
+        <p style="color:var(--muted)">「この日以降」「この日以前」を別々の条件として並べず、<b style="color:var(--ink)">1つの範囲条件</b>として扱う。単日タスクと期間タスクが混在するため、判定は9章の重なり判定をそのまま使う。</p>
+        <pre class="mt-2">タスクの期間 [date_start, 終端日] が [due_from, due_to] と重なるか
+  date_start &lt;= due_to  AND  終端日 &gt;= due_from
+  ※ 終端日 = date_end が空なら date_start</pre>
+        <ul class="list-disc list-inside space-y-1 mt-2" style="color:var(--muted)">
+          <li>片側だけの指定でも成立する。欠けている側は無制限として扱う（<code class="inl">due_to</code> だけなら「その日まで」）。</li>
+          <li>期限が未設定のタスク（<code class="inl">date_start</code> が空文字）は<b style="color:var(--ink)">常に対象外</b>。9章の空文字の落とし穴と同じ理由。</li>
+          <li>チップは「期限 2026-09-01 〜 2026-09-30」の<b style="color:var(--ink)">1つにまとめる</b>。× を押したら両方を同時に外す ─ 片方だけ残ると、利用者が意図していない絞り込みが残る。</li>
+          <li>片側だけ指定されている場合、チップは空いている側を「指定なし」と表示する。</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-1">条件の組み合わせ方</h3>
+        <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
+          <li>各条件は <b style="color:var(--ink)">AND</b> で結合する。空の条件は無視する。</li>
+          <li>スマートリスト／ジャンル選択による絞り込みとも AND で結合する。</li>
+          <li>ただし<b style="color:var(--ink)">「絞り込む」を押した時点で母集合を「すべて」に切り替える</b>。「今日」を見ている状態で「来月の期限」を絞り込んでも0件になるだけで、利用者の意図と食い違うため。<b style="color:var(--ink)">表示可否だけを変えたときは切り替えない</b>（範囲を広げる操作のため）。</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-1">条件の可視化と解除</h3>
+        <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
+          <li>適用中の条件は一覧の上に「<b>ラベル</b> 値 ×」のチップで並べる。<b style="color:var(--ink)">条件が見えないまま件数が少ない状態</b>は「データが消えた」と誤解される原因になる。</li>
+          <li>ジャンルのチップを外した時はカテゴリ条件も連動して外す（ジャンル外のカテゴリが残ると条件が矛盾するため）。</li>
+          <li>「条件をクリア」はパネル内の条件だけを消し、<b style="color:var(--ink)">キーワードは残す</b>。キーワードは検索欄という別のUIに属しており、一緒に消えると操作の対応が取れなくなる。表示可否は既定（どちらもOFF）に戻す。</li>
+        </ul>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">SQLの組み立て</b>
+        <p class="mt-1" style="color:var(--muted)">条件は必ず<b style="color:var(--ink)">プレースホルダ</b>で渡す。文字列連結でWHERE句を作らない。<code class="inl">filters.py</code> で条件の断片とパラメータ辞書を組み立て、<code class="inl">' AND '.join(clauses)</code> で結合する。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 responsive -->
+  <section id="responsive" class="mb-10">
+    <h2 class="mb-3">11. レスポンシブ設計</h2>
+
+    <div class="card p-4 mb-3 text-sm" style="border-left:4px solid var(--danger)">
+      <b style="color:var(--danger)">移植元の問題</b>
+      <p class="mt-1" style="color:var(--muted)"><code class="inl">electron-app.css</code> には <code class="inl">@media</code> が<b style="color:var(--ink)">1つも無く</b>、本体は <code class="inl">max-width: 640px</code> の中央寄せ固定だった。そのため両端で破綻する。</p>
+      <ul class="list-disc list-inside mt-2 space-y-1" style="color:var(--muted)">
+        <li><b style="color:var(--ink)">縮めると</b>内容が押し出されて横スクロールが発生し、操作できなくなる。</li>
+        <li><b style="color:var(--ink)">最大化しても</b>中央に640pxの細い1列が残るだけで、左右が丸ごと余る。画面を広げた意味がない。</li>
+      </ul>
+      <p class="mt-2" style="color:var(--muted)">デスクトップアプリはユーザーが自由にウィンドウを変えるため、両方向を補う。</p>
+    </div>
+
+    <div class="card p-4 mb-3 overflow-x-auto">
+      <svg viewBox="0 0 860 210" class="w-full min-w-[700px]" font-family="Noto Sans JP, sans-serif">
+        <text x="20" y="18" font-size="11" fill="#767A73">〜1023px：単一カラム（詳細は下から）</text>
+        <rect x="20" y="28" width="170" height="160" rx="8" fill="#F2F2F7" stroke="#E4E5DE"/>
+        <rect x="30" y="38" width="150" height="16" rx="4" fill="#E3E3E8"/>
+        <rect x="30" y="62" width="150" height="70" rx="6" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="72" y="102" font-size="10" fill="#8E8E93">切替表示</text>
+        <rect x="30" y="138" width="150" height="42" rx="6" fill="#FFFFFF" stroke="#007AFF"/>
+        <text x="86" y="163" font-size="10" fill="#8E8E93">詳細</text>
+        <path d="M105 196 L105 184" stroke="#007AFF" stroke-width="1.5" marker-end="url(#up)"/>
+        <defs><marker id="up" markerWidth="8" markerHeight="8" refX="4" refY="1" orient="auto"><path d="M0,6 L4,0 L8,6" fill="none" stroke="#007AFF" stroke-width="1.5"/></marker></defs>
+
+        <text x="250" y="18" font-size="11" fill="#767A73">1024px〜：3カラム（詳細は右サイド）</text>
+        <rect x="250" y="28" width="330" height="160" rx="8" fill="#F2F2F7" stroke="#E4E5DE"/>
+        <rect x="260" y="38" width="310" height="16" rx="4" fill="#E3E3E8"/>
+        <rect x="260" y="62" width="86" height="118" rx="6" fill="#EAEAEF" stroke="#E4E5DE"/>
+        <text x="272" y="112" font-size="9" fill="#8E8E93">サイドバー</text>
+        <text x="272" y="126" font-size="9" fill="#8E8E93">（常設）</text>
+        <rect x="354" y="62" width="112" height="118" rx="6" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="392" y="126" font-size="10" fill="#8E8E93">一覧</text>
+        <rect x="474" y="62" width="96" height="118" rx="6" fill="#FFFFFF" stroke="#007AFF"/>
+        <text x="508" y="126" font-size="10" fill="#8E8E93">詳細</text>
+        <path d="M600 121 L580 121" stroke="#007AFF" stroke-width="1.5" marker-end="url(#lf)"/>
+        <defs><marker id="lf" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M6,0 L0,4 L6,8" fill="none" stroke="#007AFF" stroke-width="1.5"/></marker></defs>
+        <text x="606" y="118" font-size="10" fill="#767A73">右から</text>
+        <text x="606" y="132" font-size="10" fill="#767A73">滑り込む</text>
+
+        <text x="700" y="18" font-size="11" fill="#767A73">列幅</text>
+        <rect x="700" y="28" width="140" height="160" rx="8" fill="#FFFFFF" stroke="#E4E5DE"/>
+        <text x="712" y="52" font-size="10" fill="#767A73">1024〜1279px</text>
+        <text x="712" y="70" font-size="10">260 / 可変 / 320</text>
+        <text x="712" y="98" font-size="10" fill="#767A73">1280px〜</text>
+        <text x="712" y="116" font-size="10">300 / 可変 / 360</text>
+        <text x="712" y="150" font-size="9" fill="#8E8E93">中央列だけが伸びる</text>
+        <text x="712" y="166" font-size="9" fill="#8E8E93">（両端は固定幅）</text>
+      </svg>
+    </div>
+
+    <div class="card overflow-x-auto mb-3">
+      <table>
+        <thead><tr><th style="width:180px">ブレークポイント</th><th>レイアウト</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1280px 〜</td><td><b>3カラム</b>：サイドバー300px ＋ 一覧 ＋ 詳細360px。サイドバー内の文字と余白を1024px時より少しゆったりさせる</td></tr>
+          <tr><td class="mono">1024px 〜 1279px</td><td><b>3カラム</b>：サイドバー260px ＋ 一覧 ＋ 詳細320px。ダッシュボードが<b>常設サイドバー</b>、詳細が<b>右の固定パネル</b>になる。オーバーレイは出さず、一覧を見ながら編集できる。サイドバーが常に見えるので<b>戻るボタンは消す</b>。両端は固定幅で、伸びるのは中央の一覧だけ</td></tr>
+          <tr><td class="mono">820px 〜 1023px</td><td>単一カラム。本体幅を 720px に広げて中央寄せ。詳細は下からのシート</td></tr>
+          <tr><td class="mono">〜 640px</td><td>単一カラムで幅いっぱい。スマートカードは移植元と同じ3列</td></tr>
+          <tr><td class="mono">〜 520px</td><td>左右余白 20px→14px、見出し 22px→19px、<b>スマートカードは3列のまま</b>1枚あたりを縮める、カレンダーのラベル列 220px→150px</td></tr>
+          <tr><td class="mono">〜 400px</td><td>スマートカードは3列のままさらに詰める（360pxで1枚106px）。FABをラベルなしの丸ボタン（52px）に。管理モーダルを1列の縦積みに。カレンダーのラベル列 120px</td></tr>
+          <tr><td class="mono">高さ 〜 560px</td><td>詳細シートと管理モーダルを 94vh まで使う。上部バーとカード間の余白を詰める</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card p-5 text-sm space-y-3">
+      <div>
+        <h3 class="mb-1">表示の切替はCSSに寄せる</h3>
+        <p style="color:var(--muted)">ダッシュボードと一覧は、狭い時は切替・広い時は併置になる。JSが <code class="inl">style.display</code> を直接いじると、幅が変わるたびに整合を取り直す羽目になる。<b style="color:var(--ink)">JSは <code class="inl">body</code> の <code class="inl">data-view</code> を書くだけ</b>にし、出し分けはCSSに任せる。</p>
+        <pre class="mt-2">/* 狭い時：切替 */
+body[data-view="dashboard"] #task-list-view { display: none; }
+body[data-view="list"]      #dashboard-view { display: none; }
+
+/* 広い時：併置（同じ詳細度で上書きする） */
+@media (min-width: 1024px) {
+  body[data-view] #dashboard-view { display: block; }
+  body[data-view] #task-list-view { display: flex; }
+}</pre>
+        <div class="p-3 rounded-lg mt-2" style="background:#FFF4E6;border:1px solid #FFD9A8">
+          <b style="color:var(--flag)">詳細度に注意</b>
+          <p class="mt-1" style="color:var(--muted)">上書き側を <code class="inl">#dashboard-view { display: block }</code> と書くと<b style="color:var(--ink)">効かない</b>。<code class="inl">body[data-view="list"] #dashboard-view</code>（ID1＋属性1＋要素1）の方が詳細度が高く、メディアクエリの内側でも負ける。メディアクエリは詳細度を上げない。<b style="color:var(--ink)">必ず同じ形のセレクタで上書きする</b>。</p>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="mb-1">詳細パネルの出し分け</h3>
+        <p style="color:var(--muted)">同じ <code class="inl">.detail-panel</code> を、狭い時は <code class="inl">position: fixed</code> のボトムシート、広い時は grid の右列（<code class="inl">position: relative</code>）として使う。DOMは1つのままなので、幅が変わっても編集中の内容が失われない。</p>
+        <ul class="list-disc list-inside space-y-1 mt-1" style="color:var(--muted)">
+          <li>広い時はオーバーレイを <code class="inl">display: none</code> にする。背後を覆う必要がないため。</li>
+          <li><b style="color:var(--ink)">列は常に置いたままにする。</b>未選択のとき列ごと消すと、タスクを選ぶたびに一覧の幅が変わってガタつく。<code class="inl">::after</code> でプレースホルダを出して幅を保つ。</li>
+          <li>「右から滑り込む」演出は<b style="color:var(--ink)">中身にだけ</b>かける（<code class="inl">translateX(20px)</code> → <code class="inl">0</code>）。列そのものを動かすとレイアウトが揺れる。</li>
+          <li>FABは <code class="inl">right: calc(var(--detail-w) + 24px)</code> で詳細パネルの外へ逃がす。列幅をCSS変数で持つのは、この計算を1か所で済ませるため。</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-1">ブレークポイントに頼らない部分</h3>
+        <p style="color:var(--muted)">スマートカードのグリッドは、640px以上では <code class="inl">repeat(auto-fit, minmax(170px, 1fr))</code> で組む。ちょうど3列になり、幅が変わっても破綻しない。</p>
+        <div class="p-3 rounded-lg mt-2" style="background:#FFF4E6;border:1px solid #FFD9A8">
+          <b style="color:var(--flag)">スマホ幅では列数を固定する</b>
+          <p class="mt-1" style="color:var(--muted)"><code class="inl">auto-fit</code> のままだと520px以下で2列に落ちる。<b style="color:var(--ink)">11枚を3列で一望できることに意味がある</b>ため、520px以下は <code class="inl">repeat(3, minmax(0, 1fr))</code> で3列に固定し、代わりにカード1枚あたりの余白・アイコン・文字を縮める。下限の360pxでも1枚106pxを確保でき、「フラグ付き」まで省略されずに収まる。</p>
+          <p class="mt-2" style="color:var(--muted)"><code class="inl">minmax(0, 1fr)</code> にすること。<code class="inl">1fr</code> だけだと中身が列幅を押し広げ、横に溢れる。</p>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="mb-1">縮小時に守ること</h3>
+        <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
+          <li><b style="color:var(--ink)">横スクロールを絶対に出さない。</b>カレンダーの日付グリッドだけは例外で、自身のコンテナ内で横スクロールする。</li>
+          <li>長いテキストは省略記号で切る（ジャンル名、タスク名、カレンダーのラベル）。折り返して行の高さが崩れる方が読みにくい。</li>
+          <li>タップ対象は最小 28px 四方を確保する。</li>
+          <li>見出しに <code class="inl">flex: 1; min-width: 0</code> だけを与えない。縮みすぎて1文字ずつ折り返す。<code class="inl">white-space: nowrap</code> と併用し、縮むのではなく行ごと折り返させる。</li>
+          <li>可変幅のペインには <code class="inl">min-width: 0</code> を付ける。grid の <code class="inl">1fr</code> は既定で <code class="inl">min-width: auto</code> のため、内容幅を下回れず隣の列を画面外へ押し出す。</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-1">起動時のウィンドウサイズ</h3>
+        <p style="color:var(--muted)"><b style="color:var(--ink)">初回は 390×820（スマホ相当）で開く。</b>移植元のレイアウトがそのまま出る幅であり、まずは見慣れた形で立ち上がる方がよい。広い画面が要るかどうかは使う人が決めることで、こちらが最初から3カラムを押し付ける理由がない。</p>
+        <table class="mt-2">
+          <thead><tr><th style="width:190px">場面</th><th>サイズ</th></tr></thead>
+          <tbody>
+            <tr><td>初回起動</td><td><code class="inl">FIRST_WINDOW</code> = 390×820（単一カラム・詳細は下からのシート）</td></tr>
+            <tr><td>2回目以降</td><td><code class="inl">app_meta.window_size</code> に残した<b>前回閉じたときのサイズ</b>を復元する</td></tr>
+            <tr><td>下限</td><td><code class="inl">MIN_WINDOW</code> = 360×480。これ以下には縮められない</td></tr>
+          </tbody>
+        </table>
+        <div class="p-3 rounded-lg mt-2" style="background:#FFF4E6;border:1px solid #FFD9A8">
+          <b style="color:var(--flag)">復元時に丸める</b>
+          <p class="mt-1" style="color:var(--muted)">保存されたサイズをそのまま使うと、大きいモニタで使った後に小さい画面へ移ったときウィンドウが画面外へはみ出す。<b style="color:var(--ink)">主画面のサイズから余白を引いた値で頭打ち</b>にし、下限も <code class="inl">MIN_WINDOW</code> で押さえる。値が壊れていた場合は初回サイズへ戻す。</p>
+          <p class="mt-2" style="color:var(--muted)">最小化直後などの異常値（<code class="inl">MIN_WINDOW</code> 未満）は保存しない。次回の起動が潰れたウィンドウになるのを防ぐ。</p>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="mb-1">動作確認の範囲</h3>
+        <p style="color:var(--muted)"><code class="inl">min_size=(360, 480)</code> で最小サイズを指定する。検証は <b style="color:var(--ink)">360×480（下限）／640×800（既定）／1000×800（シートのまま）／1024×800（3カラムの境界）／1600×900</b> の5点で行い、いずれも横スクロールが出ないことを確認する。とくに 1023px と 1024px の境界は、詳細の出方が切り替わるため必ず両側を見る。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 API -->
+  <section id="api" class="mb-10">
+    <h2 class="mb-3">12. API設計（js_api）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">HTTPのルートではなく、<code class="inl">backend/api.py</code> の <code class="inl">Api</code> クラスの公開メソッドがそのままAPIになる。フロントからは <code class="inl">window.pywebview.api.&lt;メソッド名&gt;(...)</code> を Promise として呼ぶ。引数・戻り値はJSONシリアライズ可能なものに限る。</p>
+
+    <h3 class="mb-2 mt-4">タスク</h3>
+    <div class="card overflow-x-auto mb-4">
+      <table>
+        <thead><tr><th style="width:230px">メソッド</th><th style="width:260px">引数</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">list_tasks(params)</td><td class="mono">list, q, genre_id, category_id, priority, due_from, due_to, show_pending, show_completed</td><td>一覧取得。<code class="inl">list</code> はスマートリストキー、残りは絞り込み条件（10章）。ジャンル名・色・カテゴリ名をJOINして返す</td></tr>
+          <tr><td class="mono">get_task(task_id)</td><td class="mono">task_id</td><td>1件取得</td></tr>
+          <tr><td class="mono">create_task(body)</td><td class="mono">genre_id*, content*, category_id, date_start, date_end, priority, status, result</td><td>新規作成。<code class="inl">no</code> は <code class="inl">MAX(no)+1</code> を自動採番。<code class="inl">status='completed'</code> なら <code class="inl">completed_at</code> を打つ</td></tr>
+          <tr><td class="mono">update_task(task_id, body)</td><td>上記の任意サブセット</td><td>部分更新。渡されたキーのみ更新。<code class="inl">updated_at</code> は常に更新し、<code class="inl">completed_at</code> は5章の規則で扱う</td></tr>
+          <tr><td class="mono">delete_task(task_id)</td><td class="mono">task_id</td><td>1件削除</td></tr>
+          <tr><td class="mono">delete_completed(before)</td><td class="mono">before（日付／省略可）</td><td>完了タスクの一括削除。<code class="inl">before</code> を渡すとそれ以前に完了した分だけ消す</td></tr>
+          <tr><td class="mono">calendar_tasks(params)</td><td class="mono">from*, to*, genre_id, status</td><td>期間が <code class="inl">from</code>〜<code class="inl">to</code> と重なるタスク。<code class="inl">date_start</code> が空のものは除外</td></tr>
+          <tr><td class="mono">counts(params)</td><td class="mono">show_pending, show_completed</td><td>スマートリスト11種の件数と、Python側の <code class="inl">today</code> を返す。件数は一覧と同じ規則で数える必要があるため、表示可否を受け取る</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="mb-2">ウィンドウ</h3>
+    <div class="card overflow-x-auto mb-4">
+      <table>
+        <thead><tr><th style="width:230px">メソッド</th><th style="width:150px">引数</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">open_calendar()</td><td>—</td><td>カレンダーを別ウィンドウで開く。既に開いていれば前面に出すだけ</td></tr>
+          <tr><td class="mono">close_calendar()</td><td>—</td><td>カレンダーウィンドウを閉じる</td></tr>
+          <tr><td class="mono">focus_task(task_id)</td><td class="mono">task_id</td><td>メインウィンドウを前面に出し、そのタスクの詳細を開く</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="mb-2">ジャンル・カテゴリ</h3>
+    <div class="card overflow-x-auto mb-4">
+      <table>
+        <thead><tr><th style="width:280px">メソッド</th><th style="width:210px">引数</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">list_genres(with_categories)</td><td class="mono">with_categories（真偽）</td><td>ジャンル一覧。真なら配下カテゴリを入れ子で返す</td></tr>
+          <tr><td class="mono">create_genre(name, color)</td><td class="mono">name*, color</td><td>追加。名前重複はエラー</td></tr>
+          <tr><td class="mono">update_genre(genre_id, body)</td><td class="mono">name, color</td><td>更新</td></tr>
+          <tr><td class="mono">delete_genre(genre_id)</td><td class="mono">genre_id</td><td>削除。配下にタスクがあればエラー（件数をメッセージに含める）</td></tr>
+          <tr><td class="mono">reorder_genres(ids)</td><td class="mono">ids*（配列）</td><td>並び順の一括更新</td></tr>
+          <tr><td class="mono">reorder_categories(genre_id, ids)</td><td class="mono">genre_id*, ids*（配列）</td><td>同一ジャンル配下の並び順を一括更新。<code class="inl">genre_id</code> を条件に入れ、他ジャンルのIDは無視する</td></tr>
+          <tr><td class="mono">list_categories(genre_id)</td><td class="mono">genre_id</td><td>配下カテゴリ一覧</td></tr>
+          <tr><td class="mono">create_category(genre_id, name)</td><td class="mono">genre_id*, name*</td><td>追加。同一ジャンル内の重複はエラー</td></tr>
+          <tr><td class="mono">update_category(category_id, name)</td><td class="mono">name</td><td>更新</td></tr>
+          <tr><td class="mono">delete_category(category_id)</td><td class="mono">category_id</td><td>削除。該当タスクは <code class="inl">category_id = NULL</code> になる</td></tr>
+          <tr><td class="mono">import_csv()</td><td>—</td><td><code class="inl">temp/</code> 配下のCSVを取り込む。<code class="inl">{"imported": 件数, "files": [...]}</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card p-4 text-sm mb-3">
+      <b>エラーの返し方</b>
+      <p class="mt-1" style="color:var(--muted)">pywebview の版によって例外の伝わり方が変わるため、<b style="color:var(--ink)">例外に頼らない</b>。業務エラーは辞書 <code class="inl">{"error": "メッセージ"}</code> を<b>戻り値として</b>返す。想定外の例外だけはログに出し、同じ形に包んで返す。</p>
+      <pre class="mt-2">// web/js/api.js ─ 薄いラッパー。呼び出し側は try/catch だけ書けばよい
+async function call(name, ...args) {
+  const r = await window.pywebview.api[name](...args);
+  if (r &amp;&amp; r.error) throw new Error(r.error);
+  return r;
+}
+
+export const api = {
+  listTasks:  p        =&gt; call('list_tasks', p),
+  createTask: body     =&gt; call('create_task', body),
+  updateTask: (id, b)  =&gt; call('update_task', id, b),
+  deleteTask: id       =&gt; call('delete_task', id),
+  counts:     ()       =&gt; call('counts'),
+  // …
+};</pre>
+    </div>
+
+    <div class="card p-4 text-sm">
+      <b>戻り値の例：<code class="inl">list_tasks({list: 'today'})</code></b>
+      <pre class="mt-2">[
+  {
+    "id": 12,
+    "no": 12,
+    "genre_id": 1,
+    "genre_name": "プライベート",
+    "genre_color": "#007AFF",
+    "category_id": 3,
+    "category_name": "手続き",
+    "content": "確定申告の書類をまとめる",
+    "result": "",
+    "date_start": "2026-09-20",
+    "date_end": "",
+    "priority": true,
+    "status": "active",
+    "completed_at": "",
+    "created_at": "2026-09-18T09:12:04",
+    "updated_at": "2026-09-20T07:30:11"
+  }
+]</pre>
+      <p class="mt-2" style="color:var(--muted)"><code class="inl">priority</code> はDBでは 0/1 の INTEGER だが、API境界で <code class="inl">bool</code> に変換して返す（移植元の <code class="inl">priority: t.priority === 1</code> と同じ扱い）。<code class="inl">category_id</code> が NULL のとき <code class="inl">category_name</code> は <code class="inl">""</code> を返す。</p>
+    </div>
+  </section>
+
+  <!-- 13 csv -->
+  <section id="csv" class="mb-10">
+    <h2 class="mb-3">13. CSVインポート</h2>
+    <div class="card p-5 text-sm space-y-3">
+      <div>
+        <h3 class="mb-1">対象</h3>
+        <p style="color:var(--muted)"><code class="inl">temp\</code> 直下の <code class="inl">*.csv</code>。ファイル名に <code class="inl">_imported_</code> を含むものは対象外。起動時に自動実行し、画面からも手動実行できる。</p>
+      </div>
+
+      <div>
+        <h3 class="mb-1">フォーマット</h3>
+        <pre>ジャンル,カテゴリ,開始日,終了日,内容,優先度,ステータス
+プライベート,手続き,2026-09-20,,確定申告の書類をまとめる,高,未完了
+学習,資格,2026-09-18,2026-09-25,参考書 第3章を読む,,完了</pre>
+        <table class="mt-2">
+          <thead><tr><th style="width:120px">列</th><th style="width:90px">必須</th><th>変換規則</th></tr></thead>
+          <tbody>
+            <tr><td>ジャンル</td><td>○</td><td>既存名と一致すればそのID。無ければ新規作成する</td></tr>
+            <tr><td>カテゴリ</td><td>—</td><td>該当ジャンル配下に無ければ新規作成。空欄なら <code class="inl">NULL</code></td></tr>
+            <tr><td>開始日</td><td>—</td><td><code class="inl">YYYY-MM-DD</code> / <code class="inl">YYYY/M/D</code> を受け付け、内部形式に正規化。解釈不能なら空文字</td></tr>
+            <tr><td>終了日</td><td>—</td><td>同上</td></tr>
+            <tr><td>内容</td><td>○</td><td>空行はスキップ</td></tr>
+            <tr><td>優先度</td><td>—</td><td><code class="inl">高</code> または <code class="inl">★</code> で 1、それ以外 0</td></tr>
+            <tr><td>ステータス</td><td>—</td><td><code class="inl">完了</code>→<code class="inl">completed</code>、<code class="inl">保留</code>→<code class="inl">pending</code>、それ以外 <code class="inl">active</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3 class="mb-1">処理手順</h3>
+        <ol class="list-decimal list-inside space-y-1" style="color:var(--muted)">
+          <li><b style="color:var(--ink)">先にリネームする。</b><code class="inl">元名_imported_YYYY-MM-DDTHH-MM-SS.csv</code> へ改名し、<b style="color:var(--ink)">成功したファイルだけを読む</b>。理由は下の枠。</li>
+          <li>ファイルを読む。<b style="color:var(--ink)">エンコーディングは UTF-8（BOM付き含む）→ CP932 の順で試行</b>する。Excelで保存したCSVはCP932になることが多いため。</li>
+          <li>標準ライブラリの <code class="inl">csv.reader</code> で解析する（移植元は自前のカンマ分割だったが、引用符内の改行を扱えなかった）。</li>
+          <li>1行目はヘッダとして読み飛ばす。</li>
+          <li>行ごとに上表の変換を行い、<code class="inl">tasks</code> へINSERTする。完了として取り込む行は <code class="inl">completed_at</code> に取込時刻を入れる。</li>
+          <li>重複判定：<b style="color:var(--ink)">同一ジャンル内で内容が完全一致</b>するタスクが既にあればスキップする（移植元は内容のみで全体重複判定していたため、別ジャンルの同名タスクを取り込めなかった）。</li>
+          <li>ファイル全体を単一トランザクションで処理する。1件でも失敗したらそのファイルはロールバックし、次のファイルへ進む。</li>
+        </ol>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">二重取込を防ぐ順序（重要）</b>
+        <p class="mt-1" style="color:var(--muted)">移植元は<b>取り込んでからリネーム</b>していた。この順序だと、リネームに失敗した場合（ファイルがExcelで開かれている等）に取込済みのファイルが元の名前のまま残り、<b style="color:var(--ink)">次の起動でもう一度取り込まれる</b>。</p>
+        <p class="mt-2" style="color:var(--muted)">本設計は<b style="color:var(--ink)">リネームしてから読む</b>。リネームできなければ何も取り込まずスキップするだけなので、取込履歴のテーブルを持たなくても二重取込は起きない。スキップしたファイルはログに残し、画面には「◯件のファイルを開けませんでした」と返す。</p>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">列構成が旧CSVと異なる</b>
+        <p class="mt-1" style="color:var(--muted)">旧フォーマットは <code class="inl">日付,プロジェクト,ステータス,優先度,タスク内容</code>（README記載の <code class="inl">No,案件,日付,カテゴリ,内容,優先度,ステータス</code> とも食い違っていた）。本設計ではジャンル・カテゴリを先頭に置く新フォーマットに統一する。旧CSVを取り込む必要がある場合は <code class="inl">tools\</code> に変換スクリプトを用意する。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 code -->
+  <section id="code" class="mb-10">
+    <h2 class="mb-3">14. 実装サンプル</h2>
+
+    <h3 class="mb-2">app.py（エントリポイント）</h3>
+    <pre>import webview
+
+from backend import db
+from backend.api import Api
+from backend.config import FIRST_WINDOW, INDEX_HTML, MIN_WINDOW
+
+WINDOW_SIZE_KEY = "window_size"
+_last_size = None          # resized で受け取った最新サイズ
+
+
+def _initial_size():
+    """初回はスマホ相当。2回目以降は前回のサイズを復元する。"""
+    saved = db.get_meta(WINDOW_SIZE_KEY, "")
+    if not saved:
+        return FIRST_WINDOW
+    try:
+        width, height = (int(v) for v in saved.split("x", 1))
+    except ValueError:
+        return FIRST_WINDOW
+    # 画面構成が変わって収まらない場合に備えて丸める
+    screen = _primary_screen()
+    if screen:
+        width  = min(width,  screen[0] - SCREEN_MARGIN)
+        height = min(height, screen[1] - SCREEN_MARGIN)
+    return max(width, MIN_WINDOW[0]), max(height, MIN_WINDOW[1])
+
+
+def _on_resized(width, height):
+    global _last_size
+    _last_size = (int(width), int(height))
+
+
+def main() -&gt; int:
+    db.init()                   # DDL適用・スキーマ版確認・初期ジャンル投入
+    db.backup_on_startup()      # data/backup へ世代バックアップ
+
+    width, height = _initial_size()
+    window = webview.create_window(
+        "タスク管理",
+        str(INDEX_HTML),        # file:// で読む（HTTPではない）
+        js_api=Api(),
+        width=width, height=height,
+        min_size=MIN_WINDOW,    # これ以下には縮められない（11章）
+    )
+    window.events.resized += _on_resized
+
+    webview.start()             # ウィンドウを閉じるまでブロックする
+
+    _save_size()                # 次回はこのサイズで開く
+    db.checkpoint_and_close()   # WALを本体へ書き戻してから終了
+    return 0</pre>
+    <p class="text-sm mt-2" style="color:var(--muted)">ポート・スレッド・HTTPサーバの生成がすべて不要になる。<code class="inl">INDEX_HTML</code> は <code class="inl">config.py</code> で解決する（PyInstallerで固める場合は <code class="inl">sys._MEIPASS</code> を見る）。</p>
+
+    <h3 class="mb-2 mt-4">backend/db.py（接続管理）</h3>
+    <pre>import sqlite3
+from contextlib import contextmanager
+
+from .config import DB_FILE
+
+
+@contextmanager
+def conn():
+    """呼び出しごとに開いて閉じる。
+
+    js_api の各呼び出しは別スレッドで実行されるため、接続を使い回さない。
+    PRAGMA foreign_keys は接続ごとに必要（既定は無効）。
+    """
+    c = sqlite3.connect(DB_FILE)
+    c.row_factory = sqlite3.Row
+    c.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()</pre>
+
+    <h3 class="mb-2 mt-4">backend/api.py（フロントの窓口）</h3>
+    <pre>import functools
+import logging
+
+from . import filters, repository
+
+log = logging.getLogger(__name__)
+
+
+class ApiError(Exception):
+    """利用者に見せる業務エラー。"""
+
+
+def public(fn):
+    """例外を {"error": ...} に包む。
+
+    pywebview の版によって例外の伝わり方が変わるため、例外に頼らず
+    戻り値で表現すると決める（12章）。
+    """
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except ApiError as e:
+            return {"error": str(e)}
+        except Exception:
+            log.exception("%s failed", fn.__name__)
+            return {"error": "処理に失敗しました"}
+    return wrapper
+
+
+class Api:
+    @public
+    def list_tasks(self, params=None):
+        params = params or {}
+        clauses, args = filters.build(params)
+        return repository.find_tasks(params.get("list", "all"), clauses, args)
+
+    @public
+    def create_task(self, body):
+        if not (body.get("content") or "").strip():
+            raise ApiError("タスク内容は必須です")
+        if not body.get("genre_id"):
+            raise ApiError("ジャンルは必須です")
+        s, e = body.get("date_start", ""), body.get("date_end", "")
+        if s and e and s &gt; e:
+            raise ApiError("終了日は開始日以降にしてください")
+        return repository.create_task(body)
+
+    @public
+    def delete_genre(self, genre_id):
+        remaining = repository.count_tasks_of_genre(genre_id)
+        if remaining:
+            raise ApiError(f"このジャンルにタスクが{remaining}件残っています")
+        repository.delete_genre(genre_id)
+        return {"ok": True}
+
+    @public
+    def counts(self):
+        return repository.counts()</pre>
+
+    <h3 class="mb-2 mt-4">backend/smartlist.py（期間計算）</h3>
+    <pre>import calendar
+from datetime import date, timedelta
+
+# 対象期間 [from, to] を返す。日付を持たないリストは None を返す。
+def period_of(key: str, today: date):
+    if key == "today":
+        return today, today
+    if key == "tomorrow":
+        d = today + timedelta(days=1)
+        return d, d
+    if key in ("this-week", "next-week"):
+        monday = today - timedelta(days=today.weekday())   # 月曜始まり
+        if key == "next-week":
+            monday += timedelta(days=7)
+        return monday, monday + timedelta(days=6)
+    if key in ("this-month", "next-month"):
+        y, m = today.year, today.month
+        if key == "next-month":
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        return date(y, m, 1), date(y, m, calendar.monthrange(y, m)[1])
+    return None
+
+
+# 重なり条件のSQL断片（空文字の未設定行を必ず除外する）
+OVERLAP_SQL = (
+    "date_start != '' "
+    "AND date_start &lt;= :to "
+    "AND (CASE WHEN date_end = '' THEN date_start ELSE date_end END) &gt;= :from"
+)</pre>
+
+    <h3 class="mb-2 mt-4">backend/filters.py（絞り込み条件の組み立て）</h3>
+    <pre>def build(params, apply_visibility=True) -&gt; tuple[list[str], dict]:
+    """絞り込み条件から WHERE 句の断片とパラメータ辞書を作る。
+    値は必ずプレースホルダで渡す（文字列連結しない）。
+
+    apply_visibility=False は「保留」「実行済」リスト用。
+    そのステータスを見るためのリストなので表示可否を効かせない（10章）。
+    """
+    clauses, args = [], {}
+
+    if params.get("q"):
+        clauses.append("(content LIKE :q OR result LIKE :q)")
+        args["q"] = f"%{params['q']}%"
+
+    # 表示可否。既定は未完了だけ（10章）
+    hidden = []
+    if apply_visibility and params.get("show_pending") != "1":
+        hidden.append("pending")
+    if apply_visibility and params.get("show_completed") != "1":
+        hidden.append("completed")
+    if hidden:
+        # IN 句もプレースホルダで組む
+        keys = [f":hide{i}" for i in range(len(hidden))]
+        clauses.append(f"status NOT IN ({', '.join(keys)})")
+        args.update({k.lstrip(':'): v for k, v in zip(keys, hidden)})
+
+    for key in ("genre_id", "category_id", "priority"):
+        if params.get(key):
+            clauses.append(f"{key} = :{key}")
+            args[key] = params[key]
+
+    # 期限の範囲。2入力で1条件。片方だけでも成立させる（10章）
+    due_from, due_to = params.get("due_from"), params.get("due_to")
+    if due_from or due_to:
+        clauses.append("date_start != ''")          # 期限なしは常に対象外
+        if due_to:
+            clauses.append("date_start &lt;= :due_to")
+            args["due_to"] = due_to
+        if due_from:
+            clauses.append(
+                "(CASE WHEN date_end = '' THEN date_start ELSE date_end END)"
+                " &gt;= :due_from")
+            args["due_from"] = due_from
+
+    return clauses, args</pre>
+
+    <h3 class="mb-2 mt-4">web/js/app.js（初期化）</h3>
+    <pre>// window.pywebview はページ読込直後には存在しない。
+// DOMContentLoaded ではなく pywebviewready を待つ（1章）。
+window.addEventListener('pywebviewready', async () =&gt; {
+  renderIcons();
+  bindEvents();
+  await reload();
+});
+
+async function reload() {
+  const [tasks, counts] = await Promise.all([
+    api.listTasks(currentParams()),
+    api.counts(),
+  ]);
+  renderList(tasks);
+  renderSmartCards(counts);
+}</pre>
+  </section>
+
+  <!-- 15 build -->
+  <section id="build" class="mb-10">
+    <h2 class="mb-3">15. 起動・配布</h2>
+    <div class="card p-5 text-sm space-y-3">
+      <div>
+        <h3 class="mb-1">requirements.txt</h3>
+        <pre>pywebview&gt;=4.4</pre>
+        <p style="color:var(--muted)" class="mt-1">依存はこれ1つ。WindowsでWebView2を明示するなら <code class="inl">pywebview[edgechromium]</code>。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">セットアップ手順</h3>
+        <pre>cd C:\Python3\todo
+py -3.9 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# 旧データを引き継ぐ場合のみ、1回だけ実行
+.venv\Scripts\python.exe tools\migrate_from_old.py
+
+# 起動
+.venv\Scripts\python.exe app.py</pre>
+      </div>
+      <div>
+        <h3 class="mb-1">start.bat</h3>
+        <pre>@echo off
+cd /d %~dp0
+.venv\Scripts\pythonw.exe app.py</pre>
+        <p style="color:var(--muted)" class="mt-1"><code class="inl">pythonw.exe</code> を使うとコンソールウィンドウが出ない。ログはファイルへ出力する。移植元の <code class="inl">start-server.bat</code> / <code class="inl">stop-server.bat</code> に相当するものは不要 ─ サーバを持たないため、ウィンドウを閉じればプロセスごと終わる。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">前提</h3>
+        <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
+          <li>Python 3.9 以上（参考プロジェクト web_kakeibo と同じ 3.9 を想定）。</li>
+          <li>Windows 10/11 は WebView2 Runtime が標準搭載。未導入環境では Microsoft のランタイムを別途入れる。</li>
+          <li>exe化は必須ではない。必要なら PyInstaller（<code class="inl">--noconsole --add-data "web;web"</code>）を使い、<code class="inl">config.py</code> で <code class="inl">sys._MEIPASS</code> を見て <code class="inl">web/</code> を解決する。</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="mb-1">バックアップ</h3>
+        <p style="color:var(--muted)">起動時に <code class="inl">data\todo.db</code> を <code class="inl">data\backup\todo_YYYYMMDD.db</code> へコピーする（同日分は上書き）。世代は直近10件を残し、古いものから削除する。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 16 diff -->
+  <section id="diff" class="mb-10">
+    <h2 class="mb-3">16. 旧実装からの変更点</h2>
+
+    <div class="card p-5 mb-4 text-sm" style="border-left:4px solid var(--flag)">
+      <h3 class="mb-1">アーカイブを廃止した</h3>
+      <p style="color:var(--muted)">移植元は完了タスクを <code class="inl">tasks_archived</code> テーブルへ物理移動する「アーカイブ」を持っていた。本設計ではこれを廃止する。</p>
+      <ul class="list-disc list-inside mt-2 space-y-1" style="color:var(--muted)">
+        <li><b style="color:var(--ink)">「実行済」と機能が重複している。</b>スマートカードの「実行済」で完了タスクだけを一覧でき、未完了リストに混ざることもない。アーカイブが別に解決している問題が無い。</li>
+        <li><b style="color:var(--ink)">性能上の必要がない。</b>個人用途の数千件規模では、<code class="inl">status</code> のインデックス付き絞り込みは瞬時に終わる。テーブルを分ける理由が出てこない。</li>
+        <li><b style="color:var(--ink)">複雑さがバグを生んでいた。</b>2テーブル化に伴いジャンル名のスナップショット保持・復元時のID再解決・<code class="inl">no</code> の再採番が必要になる。実際、移植元の復元SQLは <code class="inl">result</code> と <code class="inl">date_end</code> をINSERT対象から落としており、<b style="color:var(--ink)">復元するとメモと終了日が消えていた</b>。</li>
+      </ul>
+      <p class="mt-2" style="color:var(--muted)">代わりに <code class="inl">completed_at</code> を持たせ、「実行済」を完了日時の降順で並べる。移植元は完了日時を記録していなかったため、これは機能として増える。古い完了分を消したい場合は <code class="inl">delete_completed(before)</code> で足りる。</p>
+    </div>
+
+    <div class="card p-5 mb-4 text-sm" style="border-left:4px solid var(--flag)">
+      <h3 class="mb-1">HTTPサーバを廃止した</h3>
+      <p style="color:var(--muted)">移植元は Express でポート3000を開き、Electron からもブラウザからも同じ画面を開ける構成だった。本アプリは<b style="color:var(--ink)">アプリとしてのみ動けばよい</b>ため、pywebview の js_api でプロセス内呼び出しに置き換える。ポートの確保・衝突回避、同一PC上の他プロセスからAPIを叩かれる隙、TCP往復のオーバーヘッドがまとめて無くなり、依存ライブラリも pywebview 1つだけになる（詳細は<a href="#arch" style="color:var(--accent)">1章</a>）。</p>
+    </div>
+
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:170px">分類</th><th style="width:260px">旧（Electron + Express）</th><th>新（Python + pywebview）</th></tr></thead>
+        <tbody>
+          <tr><td>分類軸</td><td>顧客（customers / tasks.project）</td><td><b>ジャンル（genres / tasks.genre_id）</b>。初期値も私用の分類に差し替え</td></tr>
+          <tr><td>分類の保持</td><td>タスクに顧客名・カテゴリ名を文字列で保持</td><td>IDで参照。改名時の文字列追従UPDATEが不要に</td></tr>
+          <tr><td><b>フロント⇔ロジック</b></td><td>HTTP（Express・ポート3000固定・全インタフェースにバインド）</td><td><b>js_api のプロセス内呼び出し。</b>ポートもバインドも持たない</td></tr>
+          <tr><td><b>ブラウザからの利用</b></td><td>可能（<code class="inl">npm run server</code> ＋ <code class="inl">public/index.html</code>）</td><td><b>不可。</b>アプリのみで動く。関連する画面と起動バッチを破棄</td></tr>
+          <tr><td><b>アーカイブ</b></td><td>完了タスクを別テーブルへ物理移動</td><td><b>廃止。</b>「実行済」で代替し、<code class="inl">completed_at</code> を追加</td></tr>
+          <tr><td><b>保留ステータス</b></td><td>詳細画面に選択肢はあるが<b>一覧する手段が無い</b>。切り替えるには毎回詳細を開く必要がある</td><td>スマートカード「保留」で一覧でき、<b>行の末尾に専用トグル</b>（旗の左）を置いて1タップで切り替えられる</td></tr>
+          <tr><td><b>絞り込み</b></td><td>キーワード検索のみ</td><td>ジャンル・カテゴリ・フラグ・<b>期限の範囲</b>を追加。適用中の条件をチップで可視化</td></tr>
+          <tr><td><b>完了タスクの既定表示</b></td><td>日付リストに完了タスクも混ざって出る</td><td><b>既定では未完了のみ。</b>「保留済を表示」「実行済を表示」で足す</td></tr>
+          <tr><td><b>レスポンシブ</b></td><td><code class="inl">@media</code> が1つも無い。縮めると横スクロールで操作不能、最大化しても640pxのまま</td><td>縮小は360×480まで耐え、<b>1024pxで3カラム</b>へ組み替える。詳細は狭い時だけ下から、広い時は右サイドパネル</td></tr>
+          <tr><td>ランタイム</td><td>Electron 32 + Node 18（node_modules 同梱）</td><td>Python + OS標準のWebView2。配布物が大幅に軽量</td></tr>
+          <tr><td>依存ライブラリ</td><td>express / better-sqlite3 / electron ほか</td><td><b>pywebview のみ</b>（sqlite3 は標準ライブラリ）</td></tr>
+          <tr><td>アイコン</td><td>Phosphor Icons を unpkg から取得</td><td>インラインSVG。オフラインで動く</td></tr>
+          <tr><td>マイグレーション</td><td><code class="inl">ALTER TABLE</code> を try/catch で握りつぶす</td><td><code class="inl">app_meta.schema_version</code> による版数管理</td></tr>
+          <tr><td>CSV解析</td><td>自前のカンマ分割（引用符内改行に非対応）</td><td>標準 <code class="inl">csv</code> モジュール。UTF-8 / CP932 自動判別</td></tr>
+          <tr><td>CSV重複判定</td><td>内容の完全一致（全体）</td><td>ジャンル内での内容一致</td></tr>
+          <tr><td><b>CSV二重取込防止</b></td><td>取り込んでからリネーム（失敗すると再取込される）</td><td><b>リネームしてから読む。</b>履歴テーブルを持たずに防げる</td></tr>
+          <tr><td>画面</td><td>index.html / electron-app.html / add-task.html が併存</td><td>index.html に一本化（＋calendar.html）</td></tr>
+          <tr><td>外部キー</td><td>制約なし（Node側で整合性を担保）</td><td>FK制約 ＋ <code class="inl">PRAGMA foreign_keys=ON</code></td></tr>
+          <tr><td><b>カレンダー</b></td><td>同じウィンドウでページ遷移。一覧と並べて見られない</td><td><b>別ウィンドウ。</b>バーをクリックするとメイン側でその詳細が開く</td></tr>
+          <tr><td><b>削除の確認</b></td><td><code class="inl">confirm()</code>（OSのダイアログ）</td><td>画面内の確認ボックスに統一</td></tr>
+          <tr><td><b>ジャンル・カテゴリの編集</b></td><td><code class="inl">prompt()</code> でOSのダイアログを出して改名。色は変えられない</td><td><b>モーダル内の編集ビュー。</b>名前と色を変えられ、削除の確認もモーダル内で行う</td></tr>
+          <tr><td><b>ジャンル・カテゴリの並び替え</b></td><td>できない（<code class="inl">sort_order</code> は常に0）</td><td><b>↑↓ で並び替え。</b>一覧・サイドバー・選択肢の順序に反映される</td></tr>
+          <tr><td><b>ウィンドウサイズ</b></td><td>1200×800 固定で毎回起動</td><td><b>初回は390×820（スマホ相当）、以降は前回のサイズを復元</b></td></tr>
+          <tr><td>バックアップ</td><td>なし</td><td>起動時に自動世代バックアップ</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card p-4 mt-3 text-sm" style="border-left:4px solid var(--accent)">
+      <b>そのまま踏襲するもの</b>
+      <p class="mt-1" style="color:var(--muted)">iOSリマインダー風の単一カラム構成（狭い時）、iOSシステムカラーのパレット、スマートカードのグリッド、ダッシュボード↔一覧の切替とその戻り導線、下から出る詳細シート、丸いチェック、ピル型のFAB、2枚パネルの管理モーダル、ガントチャート形式のカレンダー、タスクの既定の並び順（未完了→完了、<code class="inl">no</code> 昇順）、<code class="inl">no</code> による表示連番、<code class="inl">temp\</code> フォルダにCSVを置く運用。</p>
+    </div>
+  </section>
+
+  <p class="text-center text-xs mt-12 mb-4" style="color:var(--muted)">詳細設計書 Ver 1.1 ｜ <a href="index.html" style="color:var(--accent)">設計一式へ戻る</a> ｜ <a href="db_design.html" style="color:var(--accent)">DB設計書</a> ｜ <a href="mock/index.html" style="color:var(--accent)">画面モック</a></p>
+</div>
+</body>
+</html>

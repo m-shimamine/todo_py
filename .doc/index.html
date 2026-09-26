@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todoアプリ（Python/pywebview）設計一式</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#18222E;--paper:#F6F7F4;--surface:#FFFFFF;--line:#E4E5DE;--accent:#007AFF;--flag:#FF9500;--muted:#767A73;}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans JP",sans-serif;margin:0}
+  .font-disp{font-family:"Zen Kaku Gothic New",sans-serif}
+  .mono{font-family:"Roboto Mono",monospace}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;transition:.15s}
+  a.card:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(24,34,46,.10);border-color:#C9D3DD}
+  ::selection{background:#CCE4FF}
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-5 py-14">
+  <div class="flex items-center gap-4 mb-3">
+    <div class="w-14 h-14 rounded-2xl grid place-items-center" style="background:var(--ink)"><span class="font-disp text-white text-2xl">✓</span></div>
+    <div>
+      <p class="mono text-xs tracking-widest" style="color:var(--accent)">DESIGN PACKAGE</p>
+      <h1 class="font-disp font-black text-4xl leading-none">Todoアプリ</h1>
+    </div>
+  </div>
+  <p class="mb-2" style="color:var(--muted)">Python 3.9 ＋ pywebview ＋ SQLite ｜ ローカル単体で動作するデスクトップアプリ</p>
+  <div class="flex flex-wrap gap-4 text-xs mono mb-10" style="color:var(--muted)">
+    <span>Ver 1.1</span><span>2026-09-20</span><span>移植元 C:\Windows11\work\todo_app（Electron + Express + better-sqlite3）</span>
+  </div>
+
+  <div class="card p-5 mb-6" style="border-left:4px solid var(--accent)">
+    <div class="font-disp font-bold mb-1">本移植の要点</div>
+    <ul class="list-disc list-inside text-sm space-y-1" style="color:var(--muted)">
+      <li>仕事用ではないため、分類軸を <b style="color:var(--ink)">顧客（customer / project）→ ジャンル（genre）</b> に置き換える。</li>
+      <li>階層は <b style="color:var(--ink)">ジャンル ＞ カテゴリ</b> の2階層。カテゴリはジャンルに従属する。</li>
+      <li>タスクの分類列は文字列保持をやめ、<code class="mono text-xs bg-black/5 px-1 rounded">genre_id</code> / <code class="mono text-xs bg-black/5 px-1 rounded">category_id</code> の外部キーに正規化する。</li>
+      <li>Electron（Node.js）を廃し、Python + pywebview の単一プロセスに統合する。</li>
+      <li><b style="color:var(--ink)">画面レイアウトは移植元をそのまま踏襲する。</b>iOSリマインダー風の単一カラム構成とiOSシステムカラー。ただし広いウィンドウでは2〜3カラムへ組み替える。</li>
+      <li><b style="color:var(--ink)">アプリとしてのみ動く。</b>HTTPサーバを持たず、ブラウザから開ける経路を作らない。依存ライブラリは pywebview 1つだけ。</li>
+    </ul>
+  </div>
+
+  <div class="card p-5 mb-10" style="border-left:4px solid var(--flag)">
+    <div class="font-disp font-bold mb-1">Ver 1.1 の主な変更</div>
+    <ul class="list-disc list-inside text-sm space-y-1" style="color:var(--muted)">
+      <li><b style="color:var(--ink)">HTTPサーバ（Flask）を廃止。</b>pywebview の js_api でプロセス内呼び出しにした。ポートもバインドも持たず、ブラウザから開く経路が存在しない（<a href="detailed_design.html#arch" style="color:var(--accent)">詳細設計書 1章</a>）。</li>
+      <li><b style="color:var(--ink)">アーカイブを廃止。</b>「実行済」と機能が重複しており、2テーブル化の複雑さが移植元で実際にバグを生んでいたため（<a href="detailed_design.html#diff" style="color:var(--accent)">詳細設計書 16章</a>）。代わりに完了日時を記録する。</li>
+      <li><b style="color:var(--ink)">「保留」ステータスを一覧できるようにした。</b>移植元は保留を設定できるのに、保留タスクを見る手段が無かった。</li>
+      <li><b style="color:var(--ink)">絞り込み条件を追加。</b>キーワード・ジャンル・カテゴリ・フラグ・<b style="color:var(--ink)">期限の範囲</b>（<a href="detailed_design.html#filter" style="color:var(--accent)">詳細設計書 10章</a>）。</li>
+      <li><b style="color:var(--ink)">既定では未完了だけを表示。</b>「保留済を表示」「実行済を表示」のチェックで足す。終わったものと止まっているものが常に混ざっていると、いま手を付けるものが埋もれるため。</li>
+      <li><b style="color:var(--ink)">レスポンシブ対応。</b>移植元はメディアクエリを1つも持たず、縮めると操作不能・最大化しても640pxのままだった。360pxまで耐え、1024pxで3カラムへ組み替える。詳細が下から出るのは狭い時だけで、広い時は右サイドパネルになる（<a href="detailed_design.html#responsive" style="color:var(--accent)">詳細設計書 11章</a>）。</li>
+      <li><code class="mono text-xs bg-black/5 px-1 rounded">import_log</code> テーブルを廃止。CSVの二重取込は「先にリネームしてから読む」順序で防ぐ。</li>
+    </ul>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">設計ドキュメント</h2>
+  <div class="grid sm:grid-cols-2 gap-4 mb-10">
+    <a href="db_design.html" class="card p-5 block">
+      <div class="text-xs mono mb-2" style="color:var(--accent)">DATABASE</div>
+      <div class="font-disp font-bold text-lg mb-1">DB設計書</div>
+      <p class="text-sm" style="color:var(--muted)">ER図・テーブル定義（4テーブル）・区分値・インデックス・DDL全文・旧DBからの移行SQL</p>
+    </a>
+    <a href="detailed_design.html" class="card p-5 block">
+      <div class="text-xs mono mb-2" style="color:var(--accent)">SPEC</div>
+      <div class="font-disp font-bold text-lg mb-1">詳細設計書</div>
+      <p class="text-sm" style="color:var(--muted)">システム構成（js_api）・画面仕様・スマートリスト判定・絞り込み・レスポンシブ・API設計・CSV取込</p>
+    </a>
+    <a href="mock/index.html" class="card p-5 block sm:col-span-2" style="border-color:var(--accent)">
+      <div class="text-xs mono mb-2" style="color:var(--flag)">MOCKUP</div>
+      <div class="font-disp font-bold text-lg mb-1">画面モック（操作できます）</div>
+      <p class="text-sm" style="color:var(--muted)">pywebview 内に表示されるフロントエンドの原寸イメージ。ダミーデータで実際に操作でき、そのまま <code class="mono text-xs bg-black/5 px-1 rounded">web/</code> 配下の実装ベースになる</p>
+    </a>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">画面一覧</h2>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div class="card p-5">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#007AFF"></span><div class="font-disp font-bold text-lg">SCR-01 ダッシュボード</div></div>
+      <p class="text-sm" style="color:var(--muted)">スマートカード11種（遅延／今日／明日／今週／来週／今月／来月／すべて／フラグ付き／保留／実行済）＋ジャンル一覧</p>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#34C759"></span><div class="font-disp font-bold text-lg">SCR-02 タスク一覧</div></div>
+      <p class="text-sm" style="color:var(--muted)">選んだリストのタスク。既定では未完了のみ。適用中の絞り込み条件をチップで表示し、1つずつ外せる</p>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#FF9500"></span><div class="font-disp font-bold text-lg">SCR-03 詳細シート</div></div>
+      <p class="text-sm" style="color:var(--muted)">内容・メモ・期限／期間・フラグ・ジャンル・カテゴリ・ステータス。狭い時は下からのシート、1024px以上は右サイドの固定パネル</p>
+    </div>
+    <div class="card p-5">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#5856D6"></span><div class="font-disp font-bold text-lg">SCR-04 ジャンル・カテゴリ管理</div></div>
+      <p class="text-sm" style="color:var(--muted)">一覧ビューと編集ビューの2枚。追加・改名・色設定・削除に加え、↑↓ で並び替え。ブラウザのダイアログは使わない</p>
+    </div>
+    <div class="card p-5 sm:col-span-2">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#AF52DE"></span><div class="font-disp font-bold text-lg">SCR-05 カレンダー</div></div>
+      <p class="text-sm" style="color:var(--muted)">ガントチャート形式。<b style="color:var(--ink)">別ウィンドウ</b>で開き、一覧と並べて見られる。バーをクリックするとメイン側でその詳細が開く</p>
+    </div>
+  </div>
+
+  <p class="text-center text-xs mt-12" style="color:var(--muted)">設計書内のCDN参照（Tailwind / Google Fonts）は本書閲覧用。アプリ本体はオフライン動作のためCSS・フォント・アイコンをすべてローカルに持つ。</p>
+</div>
+</body>
+</html>

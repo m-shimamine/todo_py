@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "devharness",
+      "runtimeExecutable": "C:\\Python3\\todo\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "C:\\Python3\\todo\\tools\\devserver.py",
+        "8800"
+      ],
+      "port": 8800
+    },
+    {
+      "name": "mock",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8777",
+        "--directory",
+        ".doc/mock"
+      ],
+      "port": 8777
+    }
+  ]
+}

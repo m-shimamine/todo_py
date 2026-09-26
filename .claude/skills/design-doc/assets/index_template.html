@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{案件名}} 設計一式</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#18222E;--paper:#F6F7F4;--surface:#FFFFFF;--line:#E4E5DE;--accent:#3E7C6B;--flag:#D2703A;--muted:#767A73;}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans JP",sans-serif;margin:0}
+  .font-disp{font-family:"Zen Kaku Gothic New",sans-serif}
+  .mono{font-family:"Roboto Mono",monospace}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;transition:.15s}
+  a.card:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(24,34,46,.10);border-color:#D3D5CB}
+  ::selection{background:#D8E7E1}
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-5 py-14">
+
+  <div class="flex items-center gap-4 mb-3">
+    <div class="w-14 h-14 rounded-2xl grid place-items-center" style="background:var(--ink)"><span class="font-disp text-white text-2xl">{{1文字アイコン}}</span></div>
+    <div>
+      <p class="mono text-xs tracking-widest" style="color:var(--accent)">DESIGN PACKAGE</p>
+      <h1 class="font-disp font-black text-4xl leading-none">{{案件名}}</h1>
+    </div>
+  </div>
+  <p class="mb-2" style="color:var(--muted)">{{技術スタック}} ｜ {{一言説明}}</p>
+  <div class="flex flex-wrap gap-4 text-xs mono mb-10" style="color:var(--muted)">
+    <span>Ver 1.0</span><span>{{YYYY-MM-DD}}</span><span>{{移植元などの前提}}</span>
+  </div>
+
+  <!-- 要点：この案件で押さえるべき判断を4つ前後 -->
+  <div class="card p-5 mb-10" style="border-left:4px solid var(--accent)">
+    <div class="font-disp font-bold mb-1">{{要点の見出し}}</div>
+    <ul class="list-disc list-inside text-sm space-y-1" style="color:var(--muted)">
+      <li>{{判断1}}</li>
+      <li>{{判断2}}</li>
+    </ul>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">設計ドキュメント</h2>
+  <div class="grid sm:grid-cols-2 gap-4 mb-10">
+    <a href="db_design.html" class="card p-5 block">
+      <div class="text-xs mono mb-2" style="color:var(--accent)">DATABASE</div>
+      <div class="font-disp font-bold text-lg mb-1">DB設計書</div>
+      <p class="text-sm" style="color:var(--muted)">{{収録内容}}</p>
+    </a>
+    <a href="detailed_design.html" class="card p-5 block">
+      <div class="text-xs mono mb-2" style="color:var(--accent)">SPEC</div>
+      <div class="font-disp font-bold text-lg mb-1">詳細設計書</div>
+      <p class="text-sm" style="color:var(--muted)">{{収録内容}}</p>
+    </a>
+    <a href="mock/index.html" class="card p-5 block sm:col-span-2" style="border-color:var(--accent)">
+      <div class="text-xs mono mb-2" style="color:var(--flag)">MOCKUP</div>
+      <div class="font-disp font-bold text-lg mb-1">画面モック（操作できます）</div>
+      <p class="text-sm" style="color:var(--muted)">{{収録内容}}</p>
+    </a>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">画面一覧</h2>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div class="card p-5">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--accent)"></span><div class="font-disp font-bold text-lg">SCR-01 {{画面名}}</div></div>
+      <p class="text-sm" style="color:var(--muted)">{{概要}}</p>
+    </div>
+  </div>
+
+  <p class="text-center text-xs mt-12" style="color:var(--muted)">設計書内のCDN参照は閲覧用。アプリ本体はオフライン動作のため外部依存を持たない。</p>
+</div>
+</body>
+</html>

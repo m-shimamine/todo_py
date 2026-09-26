@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タスク管理</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body data-view="dashboard">
+
+<div class="reminders-app">
+
+  <!-- ===== 上部バー ===== -->
+  <header class="top-bar">
+    <div class="search-container" id="search-container">
+      <span class="search-icon" id="search-icon"></span>
+      <input type="text" id="search-input" class="search-input" placeholder="検索" autocomplete="off">
+      <button class="search-clear" id="search-clear" title="クリア"></button>
+    </div>
+    <button class="bar-btn" id="filter-btn" title="絞り込み"></button>
+    <button class="bar-btn" id="calendar-link" title="カレンダー（別ウィンドウ）"></button>
+    <button class="bar-btn" id="manage-btn" title="ジャンル・カテゴリ管理"></button>
+  </header>
+
+  <!-- ===== 絞り込みパネル ===== -->
+  <div class="filter-panel" id="filter-panel">
+    <div class="filter-grid">
+      <label class="filter-field"><span>ジャンル</span><select id="f-genre"></select></label>
+      <label class="filter-field"><span>カテゴリ</span><select id="f-category"></select></label>
+      <label class="filter-field"><span>フラグ</span>
+        <select id="f-priority">
+          <option value="">すべて</option>
+          <option value="1">フラグあり</option>
+          <option value="0">フラグなし</option>
+        </select>
+      </label>
+      <div class="filter-field filter-show">
+        <span>表示</span>
+        <div class="check-row">
+          <label class="check-item">
+            <input type="checkbox" id="f-show-pending"> 保留済を表示
+          </label>
+          <label class="check-item">
+            <input type="checkbox" id="f-show-completed"> 実行済を表示
+          </label>
+        </div>
+      </div>
+      <div class="filter-field filter-range">
+        <span>期限の範囲</span>
+        <div class="range-row">
+          <input type="date" id="f-due-from" aria-label="期限の開始">
+          <span class="range-sep">〜</span>
+          <input type="date" id="f-due-to" aria-label="期限の終了">
+        </div>
+      </div>
+    </div>
+    <div class="filter-actions">
+      <button id="f-clear">条件をクリア</button>
+      <button id="f-apply" class="primary">絞り込む</button>
+    </div>
+  </div>
+
+  <!-- ===== ダッシュボード（狭い時は既定表示／広い時は常設サイドバー） ===== -->
+  <div class="scroll-content" id="dashboard-view">
+    <section class="smart-lists" id="smart-lists"></section>
+    <section class="project-lists">
+      <h3 class="section-title">ジャンル</h3>
+      <div class="project-list-items" id="genre-list-items"></div>
+    </section>
+  </div>
+
+  <!-- ===== タスク一覧 ===== -->
+  <div class="task-list-view" id="task-list-view">
+    <div class="list-header">
+      <button class="back-btn" id="back-btn"><span id="back-icon"></span>リスト</button>
+      <h2 class="list-title" id="list-title">今日</h2>
+      <span class="list-count" id="list-count"></span>
+    </div>
+    <div class="active-filters" id="active-filters"></div>
+    <div class="task-items">
+      <div class="task-items-card" id="task-items-card"></div>
+    </div>
+  </div>
+
+  <!-- ===== FAB ===== -->
+  <button class="fab" id="fab-add"><span id="fab-icon"></span><span class="fab-label">新規タスク</span></button>
+
+  <!-- ===== 詳細（〜1023pxはボトムシート／1024px〜は右サイドの固定パネル） ===== -->
+  <div class="detail-overlay" id="detail-overlay"></div>
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+      <button class="detail-cancel" id="detail-cancel">キャンセル</button>
+      <h3 id="detail-title">詳細</h3>
+      <button class="detail-save" id="detail-save">完了</button>
+    </div>
+    <div class="detail-body">
+      <textarea class="detail-textarea" id="d-content" placeholder="タスク内容"></textarea>
+      <textarea class="detail-textarea" id="d-result" placeholder="結果メモ" style="min-height:60px"></textarea>
+
+      <div class="detail-grouped">
+        <div class="detail-row">
+          <span id="i-date"></span>
+          <span class="detail-row-label" id="d-date-label">期限</span>
+          <input type="date" id="d-start">
+          <button type="button" class="range-toggle-btn" id="d-range" title="期間で指定する"></button>
+        </div>
+        <div class="detail-row" id="d-end-row" style="display:none">
+          <span id="i-date-end"></span>
+          <span class="detail-row-label">終了日</span>
+          <input type="date" id="d-end">
+        </div>
+        <div class="detail-row">
+          <span id="i-flag"></span>
+          <span class="detail-row-label">フラグ</span>
+          <label class="ios-toggle">
+            <input type="checkbox" id="d-priority"><span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="detail-row">
+          <span id="i-genre"></span>
+          <span class="detail-row-label">ジャンル</span>
+          <select id="d-genre"></select>
+        </div>
+        <div class="detail-row">
+          <span id="i-cat"></span>
+          <span class="detail-row-label">カテゴリ</span>
+          <select id="d-category"></select>
+        </div>
+        <div class="detail-row">
+          <span id="i-status"></span>
+          <span class="detail-row-label">ステータス</span>
+          <select id="d-status">
+            <option value="active">未完了</option>
+            <option value="pending">保留</option>
+            <option value="completed">完了</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="detail-delete-btn" id="d-delete"><span id="i-trash"></span>タスクを削除</button>
+      <div class="confirm-box" id="d-confirm">
+        <p>このタスクを削除します。元に戻せません。</p>
+        <div class="confirm-actions">
+          <button id="d-confirm-no">やめる</button>
+          <button id="d-confirm-yes" class="danger">削除する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ジャンル・カテゴリ管理 ===== -->
+<!-- 一覧と編集の2ビューを data-mview で切り替える。
+     改名に prompt() を使うと WebView2 では戻ってこないため、
+     入力はすべてこのモーダルの中で行う。 -->
+<div class="modal" id="manage-modal">
+  <div class="modal-content" id="manage-content" data-mview="list">
+
+    <div class="modal-header" data-mfor="list">
+      <span style="width:52px"></span>
+      <h2>ジャンル・カテゴリ管理</h2>
+      <button class="modal-close" id="manage-close">完了</button>
+    </div>
+
+    <div class="modal-header" data-mfor="edit">
+      <button class="modal-back" id="edit-back"><span id="edit-back-icon"></span>戻る</button>
+      <h2 id="edit-title">編集</h2>
+      <button class="modal-close" id="edit-save">保存</button>
+    </div>
+
+    <div class="modal-body" data-mfor="list">
+      <div class="modal-panel">
+        <span class="panel-title">ジャンル</span>
+        <div class="panel-add-form">
+          <input type="text" id="new-genre" class="panel-add-input" placeholder="新規ジャンル名">
+          <button class="panel-add-btn" id="add-genre" title="追加"></button>
+        </div>
+        <ul class="panel-list" id="genre-panel"></ul>
+        <p class="panel-hint">↑↓ で並び替え。鉛筆マークで名前と色を編集できます。</p>
+      </div>
+      <div class="modal-panel">
+        <div style="display:flex;align-items:center">
+          <span class="panel-title">カテゴリ</span>
+          <span class="selected-customer-label" id="selected-genre-label"></span>
+        </div>
+        <div class="panel-add-form" id="cat-add-form" style="display:none">
+          <input type="text" id="new-cat" class="panel-add-input" placeholder="新規カテゴリ名">
+          <button class="panel-add-btn" id="add-cat" title="追加"></button>
+        </div>
+        <div class="panel-placeholder" id="cat-placeholder">ジャンルを選択してください</div>
+        <ul class="panel-list" id="cat-panel" style="display:none"></ul>
+      </div>
+    </div>
+
+    <div class="modal-edit" data-mfor="edit">
+      <div class="edit-field">
+        <label for="edit-name">名前</label>
+        <input type="text" id="edit-name" autocomplete="off">
+      </div>
+
+      <div class="edit-field" id="edit-color-field">
+        <label>色</label>
+        <div class="color-row" id="edit-colors"></div>
+      </div>
+
+      <p class="edit-note" id="edit-note"></p>
+
+      <div class="edit-danger">
+        <button class="btn-wide-danger" id="edit-delete"><span id="edit-del-icon"></span>削除</button>
+        <div class="confirm-box" id="edit-confirm">
+          <p id="edit-confirm-text"></p>
+          <div class="confirm-actions">
+            <button id="edit-confirm-no">やめる</button>
+            <button id="edit-confirm-yes" class="danger">削除する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/icons.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

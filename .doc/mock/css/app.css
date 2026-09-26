@@ -1,0 +1,1446 @@
+/* ============================================================
+   Todoアプリ 画面モック
+   移植元 public/electron-app.css のデザイン（iOSリマインダー風）を踏襲し、
+   ウィンドウ幅・高さの縮小に耐えるようレスポンシブを追加したもの。
+   本番 web/css/app.css の元になる。
+   オフライン動作前提のため外部CDN・Webフォント・アイコンフォントは使わない
+   （アイコンはインラインSVGで描く）。
+   ============================================================ */
+
+:root {
+  /* iOS システムカラー（移植元と同一） */
+  --ios-blue:   #007AFF;
+  --ios-green:  #34C759;
+  --ios-orange: #FF9500;
+  --ios-red:    #FF3B30;
+  --ios-purple: #AF52DE;
+  --ios-indigo: #5856D6;
+  --ios-teal:   #00C7BE;
+  --ios-gray:   #8E8E93;
+
+  /* 背景 */
+  --bg-grouped: #F2F2F7;
+  --bg-card:    #FFFFFF;
+  --bg-search:  rgba(118, 118, 128, .12);
+
+  /* 文字 */
+  --text-primary:     #1C1C1E;
+  --text-secondary:   #3C3C43;
+  --text-tertiary:    #8E8E93;
+  --text-placeholder: #C7C7CC;
+
+  --separator: rgba(60, 60, 67, .12);
+
+  --radius-card:   13px;
+  --radius-search: 10px;
+  --radius-fab:    22px;
+
+  /* アプリ本体の横幅。レスポンシブの基準 */
+  --app-max: 640px;
+
+  --font: -apple-system, "Segoe UI", "Yu Gothic UI", "Meiryo",
+          "Hiragino Sans", system-ui, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-grouped);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font-family: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: none; }
+
+/* インラインSVGアイコンの既定サイズ */
+.ic { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ============================================================
+   アプリ枠
+   ============================================================ */
+
+.reminders-app {
+  height: 100vh;
+  max-width: var(--app-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ============================================================
+   上部バー
+   ============================================================ */
+
+.top-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-grouped);
+}
+
+.search-container { flex: 1; position: relative; min-width: 0; }
+
+.search-container .search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 30px 8px 34px;
+  border: none;
+  border-radius: var(--radius-search);
+  background: var(--bg-search);
+  font-size: 15px;
+  outline: none;
+}
+
+.search-input::placeholder { color: var(--text-tertiary); }
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  display: none;
+  padding: 2px;
+  line-height: 0;
+}
+
+.search-container.filled .search-clear { display: block; }
+
+.bar-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--ios-blue);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.bar-btn:hover { background: rgba(0, 122, 255, .09); }
+.bar-btn.on { background: var(--ios-blue); color: #fff; }
+
+.bar-btn .dotmark {
+  position: absolute;
+  margin: -14px 0 0 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ios-red);
+}
+
+/* ============================================================
+   絞り込みパネル
+   ============================================================ */
+
+.filter-panel {
+  flex-shrink: 0;
+  display: none;
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  margin: 0 20px 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+.filter-panel.open { display: block; }
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 12px;
+}
+
+.filter-field { min-width: 0; }
+
+.filter-field > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 3px;
+}
+
+.filter-field select,
+.filter-field input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  background: var(--bg-card);
+  font-size: 14px;
+  outline: none;
+}
+
+.filter-field select:focus,
+.filter-field input:focus { border-color: var(--ios-blue); }
+
+/* 期限の範囲・表示可否は1組として扱うため、2列分を使う */
+.filter-range,
+.filter-show { grid-column: span 2; }
+
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding-top: 3px;
+}
+
+.check-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.check-item input { width: auto; accent-color: var(--ios-blue); }
+
+.range-row { display: flex; align-items: center; gap: 6px; }
+.range-row input { flex: 1; min-width: 0; }
+.range-sep { color: var(--text-tertiary); flex-shrink: 0; font-size: 13px; }
+
+/* 1列しか取れない幅では span 2 を解除する */
+@media (max-width: 360px) {
+  .filter-range,
+  .filter-show { grid-column: auto; }
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.filter-actions button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg-search);
+  color: var(--ios-blue);
+}
+
+.filter-actions button.primary { background: var(--ios-blue); color: #fff; }
+
+/* 適用中の条件チップ */
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 20px 10px;
+}
+
+.active-filters:empty { display: none; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-card);
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  padding: 3px 6px 3px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chip b { font-weight: 600; color: var(--text-primary); }
+.chip button { color: var(--text-tertiary); line-height: 0; padding: 2px; }
+.chip button:hover { color: var(--ios-red); }
+
+/* ============================================================
+   ダッシュボード
+   ============================================================ */
+
+.scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 20px 100px;
+}
+
+/* スマートカード。auto-fit により幅に応じて 3→2→1 列へ自然に落ちる
+   （640px では移植元と同じ3列になる） */
+.smart-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.smart-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: transform .1s, box-shadow .15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+  text-align: left;
+  width: 100%;
+}
+
+.smart-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, .10); }
+.smart-card:active { transform: scale(.98); }
+
+.smart-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.smart-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.smart-count {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.smart-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+/* ジャンルリスト */
+
+.project-list-items {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+  overflow: hidden;
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background .1s;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.project-row:not(:last-child) { border-bottom: 1px solid var(--separator); }
+.project-row:hover  { background: rgba(0, 0, 0, .03); }
+.project-row:active { background: rgba(0, 0, 0, .06); }
+
+.project-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.project-name {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-count {
+  font-size: 16px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.project-row .caret {
+  color: var(--text-placeholder);
+  width: 14px;
+  height: 14px;
+  transition: transform .15s;
+}
+
+.project-row .caret.open { transform: rotate(90deg); }
+
+/* 展開トグルは行本体より広めの当たり判定を持たせる */
+.caret-wrap {
+  display: grid;
+  place-items: center;
+  padding: 6px 2px 6px 8px;
+  margin: -6px 0;
+}
+
+/* ジャンル配下のカテゴリ行 */
+
+.category-row { padding-left: 58px; }
+.category-row .project-name { font-size: 15px; color: var(--text-secondary); }
+
+.project-empty, .task-empty {
+  padding: 26px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+/* ============================================================
+   タスク一覧ビュー
+   ============================================================ */
+
+.task-list-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 10px 20px 14px;
+  gap: 12px;
+}
+
+.back-btn {
+  color: var(--ios-blue);
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.list-title {
+  font-size: 22px;
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-count { font-size: 15px; color: var(--text-tertiary); flex-shrink: 0; }
+
+.task-items { flex: 1; overflow-y: auto; padding: 0 20px 100px; }
+
+.task-items-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 16px;
+  gap: 12px;
+  transition: background .1s;
+}
+
+.task-row:not(:last-child) { border-bottom: 1px solid var(--separator); }
+.task-row:hover { background: rgba(0, 0, 0, .02); }
+
+.task-circle-container { padding-top: 2px; flex-shrink: 0; }
+
+.task-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--text-placeholder);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all .2s;
+  color: transparent;
+}
+
+.task-circle:hover { border-color: var(--ios-blue); background: rgba(0, 122, 255, .06); }
+
+.task-circle.checked {
+  background: var(--ios-blue);
+  border-color: var(--ios-blue);
+  color: #fff;
+}
+
+.task-circle .ic { width: 14px; height: 14px; }
+
+.task-body { flex: 1; min-width: 0; cursor: pointer; }
+
+.task-content-text { font-size: 16px; line-height: 1.35; word-break: break-word; }
+.task-content-text.strikethrough { color: var(--text-tertiary); text-decoration: line-through; }
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.task-project-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  border-radius: 5px;
+  padding: 1px 7px;
+}
+
+.task-category-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: var(--bg-search);
+  border-radius: 5px;
+  padding: 1px 7px;
+}
+
+.task-date-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.task-date-label .ic { width: 13px; height: 13px; }
+.task-date-label.overdue { color: var(--ios-red); font-weight: 600; }
+
+.task-status-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ios-orange);
+  background: rgba(255, 149, 0, .14);
+  border-radius: 5px;
+  padding: 1px 7px;
+}
+
+.task-trailing {
+  flex-shrink: 0;
+  padding-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 末尾のトグル。左から 保留 → フラグ の順に並べる */
+.task-toggle {
+  color: var(--text-placeholder);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 3px;
+  line-height: 0;
+  transition: color .12s, background .12s;
+}
+
+.task-toggle:hover { background: rgba(0, 0, 0, .05); }
+
+.task-hold.active { color: var(--ios-orange); }
+.task-flag.active { color: var(--ios-orange); }
+
+/* ============================================================
+   FAB
+   ============================================================ */
+
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--ios-blue);
+  color: #fff;
+  border-radius: var(--radius-fab);
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, .35);
+  transition: transform .15s, box-shadow .15s;
+  z-index: 50;
+}
+
+.fab:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 122, 255, .45); }
+.fab:active { transform: scale(.96); }
+
+/* ============================================================
+   詳細パネル（ボトムシート）
+   ============================================================ */
+
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+  z-index: 90;
+}
+
+.detail-overlay.open { opacity: 1; pointer-events: auto; }
+
+.detail-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: var(--app-max);
+  margin: 0 auto;
+  max-height: 85vh;
+  background: var(--bg-grouped);
+  border-radius: 14px 14px 0 0;
+  transform: translateY(100%);
+  transition: transform .3s ease-out;
+  z-index: 100;
+  overflow-y: auto;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, .15);
+}
+
+.detail-panel.open { transform: translateY(0); }
+
+.detail-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-grouped);
+  border-bottom: 1px solid var(--separator);
+  z-index: 2;
+}
+
+.detail-header h3 { font-size: 16px; font-weight: 600; }
+.detail-header button { font-size: 15px; color: var(--ios-blue); }
+.detail-header .detail-save { font-weight: 700; }
+
+.detail-body { padding: 14px 16px 22px; }
+
+.detail-textarea {
+  width: 100%;
+  min-height: 74px;
+  border: none;
+  border-radius: var(--radius-card);
+  background: var(--bg-card);
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.detail-textarea::placeholder { color: var(--text-placeholder); }
+
+.detail-grouped {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 14px;
+  gap: 11px;
+  min-height: 46px;
+}
+
+.detail-row:not(:last-child) { border-bottom: 1px solid var(--separator); }
+.detail-row > .ic { color: var(--text-tertiary); }
+
+.detail-row-label {
+  font-size: 15px;
+  flex-shrink: 0;
+  min-width: 68px;
+}
+
+.detail-row input[type="date"],
+.detail-row select {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
+  text-align: right;
+  outline: none;
+  color: var(--text-secondary);
+}
+
+.range-toggle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--ios-blue);
+  flex-shrink: 0;
+}
+
+.range-toggle-btn:hover { background: rgba(0, 122, 255, .1); }
+.range-toggle-btn.on { background: var(--ios-blue); color: #fff; }
+
+/* iOS風トグル */
+
+.ios-toggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.ios-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #E9E9EA;
+  border-radius: 31px;
+  transition: background .2s;
+  cursor: pointer;
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 27px;
+  height: 27px;
+  left: 2px;
+  top: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+}
+
+.ios-toggle input:checked + .toggle-slider { background: var(--ios-green); }
+.ios-toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+.detail-delete-btn {
+  width: 100%;
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: 13px;
+  color: var(--ios-red);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.detail-delete-btn:hover { background: #FFF0EF; }
+
+/* ============================================================
+   管理モーダル
+   ============================================================ */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 110;
+}
+
+.modal.open { display: flex; }
+
+.modal-content {
+  background: var(--bg-grouped);
+  width: 100%;
+  max-width: var(--app-max);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, .25);
+  overflow: hidden;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.modal-header h2 { font-size: 16px; font-weight: 600; }
+.modal-close { font-size: 15px; font-weight: 700; color: var(--ios-blue); }
+
+/* 2枚のパネル。狭い時は縦積みに落とす */
+.modal-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+}
+
+.modal-panel { min-width: 0; }
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.selected-customer-label {
+  font-size: 12px;
+  color: var(--ios-blue);
+  margin-left: 6px;
+}
+
+.panel-add-form { display: flex; gap: 6px; margin: 8px 0; }
+
+.panel-add-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--separator);
+  border-radius: 9px;
+  background: var(--bg-card);
+  font-size: 14px;
+  outline: none;
+}
+
+.panel-add-input:focus { border-color: var(--ios-blue); }
+
+.panel-add-btn {
+  width: 34px;
+  border-radius: 9px;
+  background: var(--ios-blue);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.panel-list {
+  list-style: none;
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.panel-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.panel-list li:not(:last-child) { border-bottom: 1px solid var(--separator); }
+.panel-list li:hover { background: rgba(0, 0, 0, .03); }
+.panel-list li.active { background: rgba(0, 122, 255, .1); }
+
+.panel-list .name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-list .n { font-size: 13px; color: var(--text-tertiary); }
+
+.panel-list .row-btn { color: var(--text-tertiary); line-height: 0; padding: 3px; }
+.panel-list .row-btn:hover { color: var(--ios-blue); }
+.panel-list .row-btn.del:hover { color: var(--ios-red); }
+
+.panel-placeholder {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+}
+
+.panel-hint {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+  padding: 0 2px;
+}
+
+/* ---- 一覧ビュー / 編集ビューの出し分け ---- */
+
+[data-mview="list"] [data-mfor="edit"] { display: none; }
+[data-mview="edit"] [data-mfor="list"] { display: none; }
+[data-mview="edit"] .modal-header[data-mfor="edit"] { display: flex; }
+
+.modal-back {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 15px;
+  color: var(--ios-blue);
+  min-width: 52px;
+}
+
+.modal-back .ic { width: 16px; height: 16px; }
+
+/* ---- 並び替え ---- */
+
+.order-btns { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+
+.order-btn {
+  color: var(--text-placeholder);
+  line-height: 0;
+  padding: 1px 2px;
+  border-radius: 4px;
+}
+
+.order-btn .ic { width: 13px; height: 13px; }
+.order-btn:hover:not(:disabled) { color: var(--ios-blue); background: rgba(0, 122, 255, .08); }
+.order-btn:disabled { opacity: .25; cursor: default; }
+
+/* ---- 編集ビュー ---- */
+
+.modal-edit { padding: 16px; overflow-y: auto; }
+
+.edit-field { margin-bottom: 16px; }
+
+.edit-field > label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  margin-bottom: 5px;
+}
+
+.edit-field input[type="text"] {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--separator);
+  border-radius: 9px;
+  background: var(--bg-card);
+  font-size: 16px;
+  outline: none;
+}
+
+.edit-field input[type="text"]:focus { border-color: var(--ios-blue); }
+
+.color-row { display: flex; flex-wrap: wrap; gap: 9px; }
+
+.color-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  border: 2px solid transparent;
+}
+
+/* 選択中は白い縁を挟んで外側に色の輪を出す */
+.color-dot.on { box-shadow: 0 0 0 2px var(--bg-grouped), 0 0 0 4px currentColor; }
+.color-dot .ic { width: 16px; height: 16px; opacity: 0; }
+.color-dot.on .ic { opacity: 1; }
+
+.edit-note {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.edit-danger { border-top: 1px solid var(--separator); padding-top: 14px; }
+
+.btn-wide-danger {
+  width: 100%;
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: 12px;
+  color: var(--ios-red);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.btn-wide-danger:hover:not(:disabled) { background: #FFF0EF; }
+.btn-wide-danger:disabled { color: var(--text-placeholder); cursor: default; }
+
+/* 削除の確認はその場に出す。confirm() は使わない
+   （WebView2 のダイアログに頼らず、見た目も揃える） */
+.confirm-box {
+  display: none;
+  background: #FFF0EF;
+  border: 1px solid #F3C9C5;
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+}
+
+.confirm-box.open { display: block; }
+.confirm-box p { font-size: 13px; line-height: 1.6; margin-bottom: 10px; }
+
+.confirm-actions { display: flex; gap: 8px; }
+
+.confirm-actions button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.confirm-actions button.danger { background: var(--ios-red); color: #fff; }
+
+/* ============================================================
+   トースト
+   ============================================================ */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 90px;
+  transform: translateX(-50%) translateY(12px);
+  background: rgba(28, 28, 30, .94);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: .2s;
+  z-index: 200;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+}
+
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ============================================================
+   カレンダー（ガントチャート）
+   ============================================================ */
+
+.cal-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-grouped);
+}
+
+.cal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+}
+
+/* flex:1 + min-width:0 だけだと、狭い時に見出しが1文字ずつ折り返す。
+   nowrap を効かせ、縮むのではなく行ごと折り返させる。 */
+.cal-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  flex: 1 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-header select {
+  padding: 6px 8px;
+  border: 1px solid var(--separator);
+  border-radius: 9px;
+  background: var(--bg-card);
+  font-size: 14px;
+  outline: none;
+  max-width: 44vw;
+}
+
+.cal-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  overflow: hidden;
+  background: var(--bg-card);
+  margin: 0 20px 20px;
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+.cal-labels { border-right: 1px solid var(--separator); overflow: hidden; min-width: 0; }
+
+.cal-labels-head {
+  height: 44px;
+  border-bottom: 1px solid var(--separator);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cal-labels-body { overflow: hidden; }
+
+.cal-label {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--separator);
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cal-label .cdot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.cal-label .t { overflow: hidden; text-overflow: ellipsis; }
+.cal-label.done .t { color: var(--text-tertiary); text-decoration: line-through; }
+
+.cal-scroll { overflow: auto; position: relative; min-width: 0; }
+
+.cal-dates {
+  display: flex;
+  height: 44px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 3;
+}
+
+.cal-date {
+  width: 34px;
+  flex: none;
+  border-right: 1px solid var(--separator);
+  border-bottom: 1px solid var(--separator);
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding-top: 4px;
+  line-height: 1.3;
+}
+
+.cal-date .d { font-size: 12px; color: var(--text-primary); font-weight: 700; }
+.cal-date.sat { background: #F2F6FC; }
+.cal-date.sun { background: #FDF2F2; }
+.cal-date.today { background: rgba(0, 122, 255, .12); }
+.cal-date.today .d { color: var(--ios-blue); }
+
+.cal-rows { position: relative; }
+
+.cal-row { height: 34px; position: relative; border-bottom: 1px solid var(--separator); }
+
+.cal-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 34px;
+  border-right: 1px solid var(--separator);
+}
+
+.cal-col.sat   { background: #F2F6FC; }
+.cal-col.sun   { background: #FDF2F2; }
+.cal-col.today { background: rgba(0, 122, 255, .12); }
+
+.bar {
+  position: absolute;
+  top: 6px;
+  height: 22px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  line-height: 22px;
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.bar.done { opacity: .4; }
+
+.cal-tooltip {
+  position: fixed;
+  background: rgba(28, 28, 30, .94);
+  color: #fff;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s;
+  z-index: 200;
+  max-width: 280px;
+}
+
+.cal-tooltip.show { opacity: 1; }
+
+/* ============================================================
+   ビューの出し分け
+   狭い時はダッシュボードと一覧を切り替え、広い時は併置する。
+   JS は body の data-view を書き換えるだけで、表示はCSSが決める。
+   ============================================================ */
+
+body[data-view="dashboard"] #task-list-view { display: none; }
+body[data-view="list"]      #dashboard-view { display: none; }
+
+/* 選択中のリストを示す（広い時にサイドバーが出しっぱなしになるため必要） */
+.smart-card.active  { outline: 2px solid var(--ios-blue); outline-offset: -2px; }
+.project-row.active { background: rgba(0, 122, 255, .10); }
+
+/* ============================================================
+   レスポンシブ
+   移植元には @media が1つも無く、ウィンドウを縮めると横スクロールが
+   出て操作できず、最大化しても 640px のまま横が余っていた。
+   狭い側（縮小耐性）と広い側（最大化時の列レイアウト）の両方を補う。
+   ============================================================ */
+
+/* ---- 〜520px：余白と文字を詰める ---- */
+@media (max-width: 520px) {
+  .top-bar        { padding: 10px 14px; gap: 6px; }
+  .scroll-content { padding: 4px 14px 96px; }
+  .filter-panel   { margin: 0 14px 10px; }
+  .active-filters { padding: 0 14px 8px; }
+  .list-header    { padding: 8px 14px 12px; }
+  .task-items     { padding: 0 14px 96px; }
+  .section-title, .list-title { font-size: 19px; }
+  /* スマホ幅でもスマートカードは3列を保つ。
+     auto-fit だと2列に落ちるため、列数を固定する。
+     minmax(0,1fr) にしないと中身が列幅を押し広げて横に溢れる。 */
+  .smart-lists    { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .smart-card     { padding: 9px; }
+  .smart-icon     { width: 24px; height: 24px; }
+  .smart-icon .ic { width: 15px; height: 15px; }
+  .smart-count    { font-size: 19px; }
+  .smart-label    { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-header     { padding: 10px 14px; }
+  .cal-header h1  { font-size: 19px; }
+  /* 見出しで1行を使い切り、絞り込みは次の行へ落とす */
+  .cal-header select { flex: 1 1 130px; max-width: none; }
+  .cal-body       { margin: 0 14px 14px; grid-template-columns: 150px 1fr; }
+}
+
+/* ---- 〜400px：FABをアイコンのみに、管理モーダルを縦積みに ---- */
+@media (max-width: 400px) {
+  /* 3列は保ったまま、1枚あたりを詰める */
+  .smart-lists       { gap: 7px; }
+  .smart-card        { padding: 8px 7px; }
+  .smart-card-header { margin-bottom: 5px; }
+  .smart-icon        { width: 21px; height: 21px; }
+  .smart-icon .ic    { width: 13px; height: 13px; }
+  .smart-count       { font-size: 17px; }
+  .smart-label       { font-size: 10.5px; }
+
+  .fab {
+    right: 16px;
+    bottom: 16px;
+    padding: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .fab .fab-label { display: none; }
+
+  .modal-body        { grid-template-columns: 1fr; }
+  .detail-row-label  { min-width: 54px; font-size: 14px; }
+  .task-content-text { font-size: 15px; }
+  .cal-body          { grid-template-columns: 120px 1fr; }
+}
+
+/* ---- 高さ〜560px：縦の余白を削り、シートを画面いっぱいに ---- */
+@media (max-height: 560px) {
+  .detail-panel  { max-height: 94vh; }
+  .modal-content { max-height: 94vh; }
+  .smart-lists   { margin-bottom: 16px; }
+  .top-bar       { padding-top: 8px; padding-bottom: 8px; }
+  .toast         { bottom: 70px; }
+}
+
+/* ---- 820〜1023px：単一カラムのまま少しゆったり ---- */
+@media (min-width: 820px) and (max-width: 1023px) {
+  :root { --app-max: 720px; }
+}
+
+/* ============================================================
+   ワイド 1024px〜：3カラム
+   ダッシュボードを常設サイドバーに、詳細を右サイドパネルにする。
+   下から出るシートは狭い幅（スマホ相当）のときだけ。
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  :root {
+    --side-w:   260px;
+    --detail-w: 320px;
+  }
+
+  .reminders-app {
+    max-width: none;
+    display: grid;
+    grid-template-columns: var(--side-w) minmax(0, 1fr) var(--detail-w);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "bar    bar    bar"
+      "filter filter filter"
+      "side   list   detail";
+  }
+
+  .top-bar      { grid-area: bar; padding: 12px 24px; }
+  .filter-panel { grid-area: filter; margin: 0 24px 12px; }
+
+  /* ダッシュボード → 常設サイドバー
+     display は body[data-view=…] の切替規則（詳細度 1,1,1）に負けるため、
+     同じ詳細度のセレクタで上書きする。grid-area 等は単独指定で足りる。 */
+  #dashboard-view {
+    grid-area: side;
+    border-right: 1px solid var(--separator);
+    padding: 4px 12px 24px;
+    /* 一覧側とわずかに色を変え、常設サイドバーだと分かるようにする */
+    background: #EAEAEF;
+  }
+
+  #task-list-view {
+    grid-area: list;
+    min-width: 0;
+    background: var(--bg-grouped);
+  }
+
+  body[data-view] #dashboard-view { display: block; }
+  body[data-view] #task-list-view { display: flex; }
+
+  /* サイドバー内は一回り小さくする */
+  .smart-lists   { grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 18px; }
+  .smart-card    { padding: 8px 9px; }
+  .smart-icon    { width: 22px; height: 22px; }
+  .smart-icon .ic { width: 14px; height: 14px; }
+  .smart-count   { font-size: 18px; }
+  .smart-label   { font-size: 11.5px; }
+  .section-title { font-size: 15px; margin-bottom: 8px; }
+  .project-row   { padding: 9px 11px; gap: 9px; }
+  .project-dot   { width: 22px; height: 22px; }
+  .project-dot .ic { width: 14px; height: 14px; }
+  .project-name  { font-size: 13.5px; }
+  .project-count { font-size: 12.5px; }
+  .category-row  { padding-left: 42px; }
+
+  .list-header    { padding: 14px 24px 10px; }
+  .active-filters { padding: 0 24px 8px; }
+  .task-items     { padding: 0 24px 90px; }
+
+  /* サイドバーが常に見えているので戻るボタンは不要 */
+  .back-btn { display: none; }
+
+  /* ---- 詳細：ボトムシート → 右サイドパネル ---- */
+
+  .detail-overlay { display: none !important; }
+
+  .detail-panel {
+    grid-area: detail;
+    position: relative;        /* プレースホルダの基準 */
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    max-height: none;
+    transform: none;           /* シート用のせり上がりを解除 */
+    border-radius: 0;
+    box-shadow: none;
+    border-left: 1px solid var(--separator);
+    overflow-y: auto;
+    transition: none;
+  }
+
+  /* 未選択でも列幅を保ち、ガタつかせない */
+  .detail-panel:not(.open) { overflow: hidden; }
+
+  .detail-panel::after {
+    content: "タスクを選択してください";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+
+  .detail-panel:not(.open)::after { opacity: 1; }
+
+  /* 中身は右から滑り込ませる（列幅は動かさないので一覧がずれない） */
+  .detail-panel > * {
+    transition: opacity .2s ease-out, transform .22s ease-out;
+  }
+
+  .detail-panel:not(.open) > * {
+    opacity: 0;
+    transform: translateX(20px);
+    pointer-events: none;
+  }
+
+  /* FABが詳細パネルに被らないようにずらす */
+  .fab { right: calc(var(--detail-w) + 24px); }
+}
+
+/* ---- 1280px〜：各列を少しゆったりさせる ---- */
+@media (min-width: 1280px) {
+  :root {
+    --side-w:   300px;
+    --detail-w: 360px;
+  }
+
+  #dashboard-view { padding: 4px 14px 24px; }
+  .smart-lists    { gap: 8px; }
+  .smart-card     { padding: 9px 10px; }
+  .smart-icon     { width: 24px; height: 24px; }
+  .smart-count    { font-size: 19px; }
+  .smart-label    { font-size: 12px; }
+  .project-row    { padding: 10px 12px; gap: 10px; }
+  .project-dot    { width: 24px; height: 24px; }
+  .project-name   { font-size: 14px; }
+  .project-count  { font-size: 13px; }
+  .category-row   { padding-left: 46px; }
+}

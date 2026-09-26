@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{文書名}}｜{{案件名}}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ---- このブロックは文書間で共通。--accent 以外は変えない ---- */
+  :root{--ink:#18222E;--paper:#F6F7F4;--surface:#FFFFFF;--line:#E4E5DE;--accent:#3E7C6B;--flag:#D2703A;--danger:#C9503F;--muted:#767A73;}
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans JP",sans-serif;margin:0;line-height:1.7}
+  .font-disp{font-family:"Zen Kaku Gothic New",sans-serif}
+  .mono{font-family:"Roboto Mono",monospace}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+  h2{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:900;font-size:1.4rem;margin:0}
+  h3{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#EEF0EA;text-align:left;padding:8px 10px;font-weight:700;border:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 10px;border:1px solid var(--line);vertical-align:top}
+  td.mono{font-family:"Roboto Mono",monospace;font-size:12px}
+  .pk{background:#E6F0EC;color:#2B5B4E;font-weight:700;border-radius:4px;padding:0 6px;font-size:11px}
+  .fk{background:#E4EEFB;color:#33568F;font-weight:700;border-radius:4px;padding:0 6px;font-size:11px}
+  .nn{color:var(--danger);font-weight:700}
+  .m{display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:"Roboto Mono",monospace}
+  .m-get{background:#E6F0EC;color:#2B5B4E}
+  .m-post{background:#E4EEFB;color:#33568F}
+  .m-put{background:#FBF1E4;color:#8A5A17}
+  .m-del{background:#FAE6E3;color:#93382C}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  pre{background:#18222E;color:#E8EDE9;border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"Roboto Mono",monospace;font-size:12px;line-height:1.6}
+  code.inl{font-family:"Roboto Mono",monospace;background:rgba(0,0,0,.05);padding:0 5px;border-radius:4px;font-size:12px}
+  ::selection{background:#D8E7E1}
+</style>
+</head>
+<body>
+<div class="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+
+  <!-- ===== タイトル ===== -->
+  <div class="flex items-center gap-4 mb-2">
+    <div class="w-12 h-12 rounded-xl grid place-items-center" style="background:var(--ink)"><span class="font-disp text-white text-xl">{{1文字アイコン}}</span></div>
+    <div>
+      <p class="mono text-xs tracking-widest" style="color:var(--accent)">{{DATABASE DESIGN / DETAILED DESIGN 等}}</p>
+      <h1 class="font-disp font-black text-3xl leading-tight">{{文書名}}</h1>
+    </div>
+  </div>
+  <p style="color:var(--muted)" class="mb-1">{{案件名}} ｜ {{技術スタック}}</p>
+  <div class="flex flex-wrap gap-4 text-xs mono mb-8" style="color:var(--muted)">
+    <span>Ver 1.0</span><span>{{YYYY-MM-DD}}</span><span>{{対象・DB名など}}</span>
+  </div>
+
+  <!-- ===== 目次 ===== -->
+  <div class="card p-5 mb-8 toc">
+    <h3 class="mb-3">目次</h3>
+    <ol class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm list-decimal list-inside">
+      <li><a href="#sec1">{{章タイトル}}</a></li>
+      <li><a href="#sec2">{{章タイトル}}</a></li>
+    </ol>
+  </div>
+
+  <!-- ===== 章：表を中心に ===== -->
+  <section id="sec1" class="mb-10">
+    <h2 class="mb-3">1. {{章タイトル}}</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">{{この章が何を決めているか1文}}</p>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:130px">カラム</th><th style="width:110px">型</th><th style="width:110px">制約</th><th style="width:120px">既定値</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">id</td><td class="mono">INTEGER</td><td><span class="pk">PK</span></td><td class="mono">AUTOINCREMENT</td><td>{{説明}}</td></tr>
+          <tr><td class="mono">name</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span> UNIQUE</td><td>—</td><td>{{説明}}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 注意ボックス（実装時にハマる箇所。その場に置く） -->
+    <div class="p-3 rounded-lg mt-3 text-sm" style="background:#FDF3EC;border:1px solid #F0D9C6">
+      <b style="color:var(--flag)">{{何が起きるか}}</b>　{{なぜそうなるか、どう避けるか}}
+    </div>
+  </section>
+
+  <!-- ===== 章：設計意図を添える ===== -->
+  <section id="sec2" class="mb-10">
+    <h2 class="mb-3">2. {{章タイトル}}</h2>
+    <div class="card p-5 text-sm space-y-3">
+      <div>
+        <h3 class="mb-1">{{小見出し}}</h3>
+        <p style="color:var(--muted)">{{本文}}</p>
+      </div>
+    </div>
+    <div class="card p-4 mt-3 text-sm" style="border-left:4px solid var(--accent)">
+      <b>設計意図：{{何を選んだか}}</b>
+      <p class="mt-1" style="color:var(--muted)">{{なぜ他案を採らなかったか}}</p>
+    </div>
+  </section>
+
+  <p class="text-center text-xs mt-12 mb-4" style="color:var(--muted)">{{文書名}} Ver 1.0 ｜ <a href="index.html" style="color:var(--accent)">設計一式へ戻る</a></p>
+</div>
+</body>
+</html>

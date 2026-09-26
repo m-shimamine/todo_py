@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>カレンダー｜タスク管理</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div class="cal-page">
+  <div class="cal-header">
+    <button class="back-btn" id="back-btn"><span id="back-icon"></span>閉じる</button>
+    <h1>カレンダー</h1>
+    <select id="genre-filter"></select>
+    <select id="status-filter">
+      <option value="">すべて</option>
+      <option value="active">未完了</option>
+      <option value="pending">保留</option>
+      <option value="completed">完了</option>
+    </select>
+    <button class="bar-btn" id="today-btn" title="今日へ"></button>
+  </div>
+
+  <div class="cal-body">
+    <div class="cal-labels">
+      <div class="cal-labels-head">タスク</div>
+      <div class="cal-labels-body" id="cal-labels"></div>
+    </div>
+    <div class="cal-scroll" id="cal-scroll">
+      <div class="cal-grid">
+        <div class="cal-dates" id="cal-dates"></div>
+        <div class="cal-rows" id="cal-rows"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cal-tooltip" id="tooltip"></div>
+
+<script src="js/icons.js"></script>
+<script src="js/api.js"></script>
+<script src="js/calendar.js"></script>
+</body>
+</html>

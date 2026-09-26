@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>画面モック｜Todoアプリ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#18222E;--paper:#F6F7F4;--surface:#FFFFFF;--line:#E4E5DE;--accent:#007AFF;--flag:#FF9500;--muted:#767A73;}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans JP",sans-serif;margin:0}
+  .font-disp{font-family:"Zen Kaku Gothic New",sans-serif}
+  .mono{font-family:"Roboto Mono",monospace}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;transition:.15s}
+  a.card:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(24,34,46,.10);border-color:#C9D3DD}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#EEF0EA;text-align:left;padding:8px 10px;font-weight:700;border:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 10px;border:1px solid var(--line);vertical-align:top}
+  code.inl{font-family:"Roboto Mono",monospace;background:rgba(0,0,0,.05);padding:0 5px;border-radius:4px;font-size:12px}
+  ::selection{background:#CCE4FF}
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-5 py-12">
+
+  <div class="flex items-center gap-4 mb-3">
+    <div class="w-12 h-12 rounded-xl grid place-items-center" style="background:var(--ink)"><span class="font-disp text-white text-xl">✓</span></div>
+    <div>
+      <p class="mono text-xs tracking-widest" style="color:var(--accent)">MOCKUP</p>
+      <h1 class="font-disp font-black text-3xl leading-none">画面モック</h1>
+    </div>
+  </div>
+  <p class="mb-2" style="color:var(--muted)">pywebview 内に表示されるフロントエンドの原寸イメージ。実際に操作できます。</p>
+  <div class="card p-4 mb-8" style="border-left:4px solid var(--flag)">
+    <b>このモックは実装前の設計成果物です</b>
+    <p class="text-sm mt-1" style="color:var(--muted)">アプリは実装済みで、<b style="color:var(--ink)">いまの挙動の正は <code class="inl">web/</code> 配下の実装</b>です。実装後に入れた変更（ジャンル・カテゴリの編集ビューと並び替え、ウィンドウサイズの記憶）はモックに反映していません。仕様は<a href="../detailed_design.html" style="color:var(--accent)">詳細設計書</a>を参照してください。</p>
+  </div>
+
+  <div class="card p-5 mb-6" style="border-left:4px solid var(--accent)">
+    <div class="font-disp font-bold mb-2">デザインの方針</div>
+    <ul class="list-disc list-inside text-sm space-y-1" style="color:var(--muted)">
+      <li><b style="color:var(--ink)">移植元のレイアウトをそのまま踏襲</b>しています。iOSリマインダー風の単一カラム（上部バー → スマートカード → リスト、詳細はボトムシート）で、カラーパレットも移植元と同じ iOS システムカラーです。</li>
+      <li><b style="color:var(--ink)">ウィンドウの縮小と最大化の両方に対応</b>しました。移植元には <code class="inl">@media</code> が1つも無く、狭めると横スクロールが出て操作できず、最大化しても640pxの細い1列のままでした。</li>
+      <li>データはブラウザ内のメモリ上のダミー（<code class="inl">js/mock-data.js</code>）。リロードすると初期状態に戻ります。</li>
+      <li>日付は<b style="color:var(--ink)">開いた日を基準に生成</b>されるため、スマートカードの件数がそのまま動きます。</li>
+      <li><b style="color:var(--ink)">CDN・Webフォント・アイコンフォントを使っていません。</b>移植元は Phosphor Icons を unpkg から読んでいましたが、オフラインで動く必要があるためインラインSVGに置き換えました。</li>
+      <li>このモックはブラウザで開いて確認しますが、<b style="color:var(--ink)">アプリ本体はブラウザから開けません</b>。HTTPサーバを持たず、pywebview の js_api でPythonを直接呼びます。モックは設計検証用の成果物であって、アプリの機能ではありません。</li>
+    </ul>
+  </div>
+
+  <div class="card p-5 mb-10" style="border-left:4px solid var(--flag)">
+    <div class="font-disp font-bold mb-2">前回からの変更</div>
+    <ul class="list-disc list-inside text-sm space-y-1" style="color:var(--muted)">
+      <li><b style="color:var(--ink)">最大化時のレイアウトを作りました。</b>1024px以上で3カラムになり、ダッシュボードが常設サイドバー、<b style="color:var(--ink)">詳細が右サイドの固定パネル</b>になります（中身は右から滑り込みます）。<b style="color:var(--ink)">下からせり上がるのは1023px以下だけ</b>です。</li>
+      <li><b style="color:var(--ink)">絞り込みの日付を「期限の範囲」に変更。</b>「この日以降／以前」の2条件ではなく、<code class="inl">開始 〜 終了</code> の1条件として扱います。チップも1つにまとまり、× で両方外れます。</li>
+      <li><b style="color:var(--ink)">アーカイブを廃止しました。</b>「実行済」で完了タスクを見られるため重複しています（理由は<a href="../detailed_design.html#diff" style="color:var(--accent)">詳細設計書 16章</a>）。</li>
+      <li><b style="color:var(--ink)">「保留」ステータスを復活させました。</b>移植元は <code class="inl">status</code> に保留を持ちながら一覧する手段がなく、切り替えるにも詳細画面を開く必要がありました。スマートカード「保留」に加え、<b style="color:var(--ink)">行の末尾（旗の左）に専用トグル</b>を置いています。</li>
+    </ul>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">画面</h2>
+  <div class="grid sm:grid-cols-2 gap-4 mb-10">
+    <a href="main.html" class="card p-5 block">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:var(--accent)"></span>
+        <div class="font-disp font-bold text-lg">メイン</div>
+      </div>
+      <p class="text-sm" style="color:var(--muted)">SCR-01 ダッシュボード／SCR-02 タスク一覧／SCR-03 詳細シート／SCR-04 ジャンル・カテゴリ管理。すべてこの1ページ内。</p>
+    </a>
+    <a href="calendar.html" class="card p-5 block">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:#AF52DE"></span>
+        <div class="font-disp font-bold text-lg">カレンダー</div>
+      </div>
+      <p class="text-sm" style="color:var(--muted)">SCR-05。ガントチャート形式。本日の前後30日を横スクロール。ジャンル色のバーで期間を表示。</p>
+    </a>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">試せる操作</h2>
+  <div class="card overflow-x-auto mb-10">
+    <table>
+      <thead><tr><th style="width:190px">操作</th><th>どこを触るか / 何が起きるか</th></tr></thead>
+      <tbody>
+        <tr><td>スマートカード</td><td>上部のタイル11種。数字が該当件数。タップでそのリストへ</td></tr>
+        <tr><td><b>保留済／実行済の表示</b></td><td>絞り込みパネルの「表示」。<b>既定はどちらもOFFで、一覧には未完了だけが出ます。</b>チェックを入れたぶんだけ足されます（件数も連動）。「保留」「実行済」のカードはチェックなしでも中身が出ます</td></tr>
+        <tr><td>ジャンル絞り込み</td><td>「ジャンル」の行をタップ。右端の <b>&gt;</b> をタップすると配下カテゴリが開く</td></tr>
+        <tr><td>完了トグル</td><td>行左の丸をタップ。丸は完了かどうかだけを表す</td></tr>
+        <tr><td><b>保留トグル</b></td><td>行右端、<b>旗の左</b>の時計アイコンをタップ。詳細を開かずに保留のオン／オフを切り替えられる。完了中に押すと完了が解けて保留になる</td></tr>
+        <tr><td>フラグ</td><td>行右端の旗アイコンをタップ</td></tr>
+        <tr><td>詳細編集</td><td>行本文をタップ。狭い時は下からシート、広い時は右サイドパネルに出る。日付行の <b>⇄</b> ボタンで期間指定に切り替わる</td></tr>
+        <tr><td>新規追加</td><td>右下の ＋ ボタン</td></tr>
+        <tr><td>キーワード検索</td><td>上部の検索欄。内容とメモを部分一致（250msデバウンス）</td></tr>
+        <tr><td><b>絞り込み</b></td><td>検索欄の右のスライダーアイコン。ジャンル・カテゴリ・フラグ・<b>期限の範囲</b>で絞る。適用中の条件は一覧の上にチップで出て、<b>×</b> で1つずつ外せる</td></tr>
+        <tr><td>ジャンル管理</td><td>上部バー右端の歯車。タスクが残るジャンルは削除を拒否（<code class="inl">RESTRICT</code> の挙動）。カテゴリ削除は「なし」になる旨を確認</td></tr>
+        <tr><td>カレンダー</td><td>上部バーのカレンダーアイコン。バーにホバーで詳細、クリックでメインへ戻る</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="font-disp font-bold text-lg mb-3">レスポンシブの確認</h2>
+  <div class="card overflow-x-auto mb-4">
+    <table>
+      <thead><tr><th style="width:170px">幅</th><th>レイアウト</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">1280px 〜</td><td><b>3カラム</b>：サイドバー300 ＋ 一覧 ＋ 詳細360</td></tr>
+        <tr><td class="mono">1024 〜 1279px</td><td><b>3カラム</b>：サイドバー260 ＋ 一覧 ＋ 詳細320。詳細が<b>右サイドの固定パネル</b>になり、戻るボタンが消える。未選択時はプレースホルダ</td></tr>
+        <tr><td class="mono">820 〜 1023px</td><td>単一カラム 720px 中央寄せ。詳細は下からのシート</td></tr>
+        <tr><td class="mono">〜 640px</td><td>単一カラム 幅いっぱい。スマートカードは移植元と同じ3列</td></tr>
+        <tr><td class="mono">〜 520px</td><td>余白と見出しを詰める。<b>スマートカードは3列のまま</b>1枚を縮める。カレンダーのラベル列 150px</td></tr>
+        <tr><td class="mono">〜 400px</td><td>スマートカードは3列のままさらに詰める（360pxで1枚106px）。FABをアイコンのみの丸ボタンに。管理モーダルを縦積みに。カレンダーのラベル列 120px</td></tr>
+        <tr><td class="mono">高さ 〜560px</td><td>シートとモーダルを 94vh まで使う</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="text-sm mb-10" style="color:var(--muted)">ブラウザの開発者ツールでウィンドウ幅を変えると確認できます。360×480／640×800／1000×800／1024×800／1600×900 のいずれでも横スクロールが出ないことを確認済みです。</p>
+
+  <p class="text-center text-xs" style="color:var(--muted)">
+    <a href="../index.html" style="color:var(--accent)">設計一式へ戻る</a> ｜
+    <a href="../detailed_design.html" style="color:var(--accent)">詳細設計書</a> ｜
+    <a href="../db_design.html" style="color:var(--accent)">DB設計書</a>
+  </p>
+</div>
+</body>
+</html>

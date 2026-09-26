@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB設計書｜Todoアプリ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#18222E;--paper:#F6F7F4;--surface:#FFFFFF;--line:#E4E5DE;--accent:#007AFF;--flag:#FF9500;--danger:#FF3B30;--muted:#767A73;}
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans JP",sans-serif;margin:0;line-height:1.7}
+  .font-disp{font-family:"Zen Kaku Gothic New",sans-serif}
+  .mono{font-family:"Roboto Mono",monospace}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+  h2{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:900;font-size:1.4rem;margin:0}
+  h3{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#EEF0EA;text-align:left;padding:8px 10px;font-weight:700;border:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 10px;border:1px solid var(--line);vertical-align:top}
+  td.mono{font-family:"Roboto Mono",monospace;font-size:12px}
+  .pk{background:#E3EEFF;color:#1F4E8C;font-weight:700;border-radius:4px;padding:0 6px;font-size:11px}
+  .fk{background:#EDE4FB;color:#5B3A8E;font-weight:700;border-radius:4px;padding:0 6px;font-size:11px}
+  .nn{color:var(--danger);font-weight:700}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  pre{background:#18222E;color:#E8EDE9;border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"Roboto Mono",monospace;font-size:12px;line-height:1.6}
+  code.inl{font-family:"Roboto Mono",monospace;background:rgba(0,0,0,.05);padding:0 5px;border-radius:4px;font-size:12px}
+  ::selection{background:#CCE4FF}
+</style>
+</head>
+<body>
+<div class="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+
+  <div class="flex items-center gap-4 mb-2">
+    <div class="w-12 h-12 rounded-xl grid place-items-center" style="background:var(--ink)"><span class="font-disp text-white text-xl">✓</span></div>
+    <div>
+      <p class="mono text-xs tracking-widest" style="color:var(--accent)">DATABASE DESIGN</p>
+      <h1 class="font-disp font-black text-3xl leading-tight">DB設計書</h1>
+    </div>
+  </div>
+  <p style="color:var(--muted)" class="mb-1">Todoアプリ ｜ Python + pywebview ｜ SQLite 3（標準ライブラリ sqlite3）</p>
+  <div class="flex flex-wrap gap-4 text-xs mono mb-8" style="color:var(--muted)">
+    <span>Ver 1.1</span><span>2026-09-20</span><span>DBファイル data/todo.db</span><span>encoding UTF-8</span>
+  </div>
+
+  <div class="card p-4 mb-8" style="border-left:4px solid var(--flag)">
+    <b>Ver 1.1 の変更</b>
+    <ul class="list-disc list-inside text-sm mt-1 space-y-1" style="color:var(--muted)">
+      <li><code class="inl">tasks_archived</code> テーブルを<b style="color:var(--ink)">廃止</b>した（理由は <a href="#overview" style="color:var(--accent)">1章</a>）。</li>
+      <li><code class="inl">tasks.status</code> に <code class="inl">'pending'</code>（保留）を追加し3値にした。移植元の画面が保留を持っていたのを取りこぼしていた。</li>
+      <li><code class="inl">tasks.completed_at</code>（完了日時）を追加した。</li>
+      <li><code class="inl">import_log</code> テーブルを<b style="color:var(--ink)">廃止</b>した。CSVの二重取込は「先にリネームしてから読む」順序で防ぐ（<a href="detailed_design.html#csv" style="color:var(--accent)">詳細設計書 13章</a>）。</li>
+    </ul>
+  </div>
+
+  <div class="card p-5 mb-8 toc">
+    <h3 class="mb-3">目次</h3>
+    <ol class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm list-decimal list-inside">
+      <li><a href="#overview">概要・方針</a></li>
+      <li><a href="#er">ER図（エンティティ関連）</a></li>
+      <li><a href="#t-genre">genres（ジャンル）</a></li>
+      <li><a href="#t-category">categories（カテゴリ）</a></li>
+      <li><a href="#t-task">tasks（タスク）</a></li>
+      <li><a href="#t-meta">app_meta（スキーマ管理）</a></li>
+      <li><a href="#codes">区分値（コード定義）</a></li>
+      <li><a href="#index">インデックス設計</a></li>
+      <li><a href="#ddl">DDL全文</a></li>
+      <li><a href="#migrate">旧DBからの移行</a></li>
+      <li><a href="#sqlite">SQLite固有の実装事項</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 概要 -->
+  <section id="overview" class="mb-10">
+    <h2 class="mb-3">1. 概要・方針</h2>
+    <div class="card p-5 space-y-3 text-sm">
+      <p>単一ユーザーのローカルアプリのため <code class="inl">user_id</code> は持たない。DBファイルはアプリ配下 <code class="inl">data/todo.db</code> に置き、これ1つを退避すれば全データのバックアップとなる。</p>
+      <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
+        <li><b style="color:var(--ink)">分類軸の変更</b>：旧DBの <code class="inl">tasks.project</code>（顧客名を文字列で保持）を廃止し、<code class="inl">genres</code>（ジャンル）テーブルへ正規化する。旧 <code class="inl">tasks.category</code>（文字列）も <code class="inl">categories</code> テーブルへ正規化する。</li>
+        <li><b style="color:var(--ink)">2階層構造</b>：カテゴリは必ず1つのジャンルに属する（<code class="inl">categories.genre_id</code>）。タスクはジャンル必須・カテゴリ任意とする。</li>
+        <li><b style="color:var(--ink)">整合性</b>：旧実装は顧客名リネーム時に <code class="inl">UPDATE tasks SET project=…</code> で文字列を追従させていたが、ID参照にすることでこの追従処理そのものを不要にする。</li>
+        <li><b style="color:var(--ink)">テーブルは tasks 1本</b>：完了タスクを別テーブルへ退避する仕組み（アーカイブ）は持たない。理由は下の枠を参照。</li>
+        <li>日付は <code class="inl">TEXT</code> の <code class="inl">'YYYY-MM-DD'</code> 形式で保持（SQLiteに日付型は無い。文字列の辞書順＝時系列順となる形式を採用）。</li>
+        <li>日時は <code class="inl">TEXT</code> のISO8601（<code class="inl">'YYYY-MM-DDTHH:MM:SS'</code>、ローカル時刻）で保持。</li>
+        <li>論理削除は使わない。ジャンル／カテゴリの削除は <a href="#sqlite" style="color:var(--accent)">11章</a>の参照規則で扱う。</li>
+      </ul>
+
+      <div class="p-3 rounded-lg text-sm" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">アーカイブを持たない理由</b>
+        <p class="mt-1" style="color:var(--muted)">旧実装は完了タスクを <code class="inl">tasks_archived</code> へ物理移動していた。目的は「一覧が完了タスクで溢れるのを防ぐ」ことだが、本アプリではこれを採らない。</p>
+        <ul class="list-disc list-inside mt-2 space-y-1" style="color:var(--muted)">
+          <li><b style="color:var(--ink)">「実行済」で同じことができる。</b><code class="inl">status = 'completed'</code> で絞り込めば完了分だけを一覧でき、未完了リストに混ざることもない。アーカイブは機能として重複している。</li>
+          <li><b style="color:var(--ink)">性能上の必要がない。</b>個人用途で想定されるのは数千件規模であり、SQLiteにとって <code class="inl">status</code> のインデックス付き絞り込みは瞬時に終わる。分割する理由が性能面から出てこない。</li>
+          <li><b style="color:var(--ink)">複雑さがバグを生んでいた。</b>2テーブル化に伴い、ジャンル名のスナップショット保持・復元時のID再解決・復元先の <code class="inl">no</code> 再採番が必要になる。実際に旧実装の復元SQLは <code class="inl">result</code> と <code class="inl">date_end</code> をINSERT対象から落としており、復元するとメモと終了日が消えていた。</li>
+        </ul>
+        <p class="mt-2" style="color:var(--muted)">代わりに <code class="inl">completed_at</code>（完了日時）を持たせ、「実行済」を完了日時の降順で並べる。旧実装では「いつ終えたか」が記録されていなかったため、これは機能として増える。古い完了分を本当に消したい場合は、完了日時を条件にした一括削除で足りる。</p>
+      </div>
+
+      <div class="p-3 rounded-lg text-sm" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">注意</b>　<code class="inl">tasks.no</code>（表示用の連番）は旧実装を踏襲して残すが、主キーではない。並び替え・手動採番の都合で重複・欠番が起こりうるため、一意制約は付けない。
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 ER図 -->
+  <section id="er" class="mb-10">
+    <h2 class="mb-3">2. ER図</h2>
+    <div class="card p-4 overflow-x-auto">
+      <svg viewBox="0 0 880 450" class="w-full min-w-[720px]" font-family="Roboto Mono, monospace">
+        <defs>
+          <marker id="one" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+            <path d="M6,1 V11" stroke="#18222E" stroke-width="1.5"/>
+          </marker>
+          <marker id="many" markerWidth="14" markerHeight="12" refX="2" refY="6" orient="auto">
+            <path d="M12,1 L2,6 L12,11" fill="none" stroke="#18222E" stroke-width="1.5"/>
+          </marker>
+        </defs>
+
+        <rect x="30" y="30" width="200" height="118" rx="10" fill="#FFFFFF" stroke="#007AFF" stroke-width="2"/>
+        <rect x="30" y="30" width="200" height="26" rx="10" fill="#007AFF"/>
+        <text x="40" y="48" fill="#fff" font-size="13" font-weight="700">genres</text>
+        <text x="40" y="76" font-size="11">[PK] id</text>
+        <text x="40" y="94" font-size="11">name (UNIQUE)</text>
+        <text x="40" y="112" font-size="11">color</text>
+        <text x="40" y="130" font-size="11">sort_order</text>
+
+        <rect x="340" y="30" width="215" height="118" rx="10" fill="#FFFFFF" stroke="#007AFF" stroke-width="2"/>
+        <rect x="340" y="30" width="215" height="26" rx="10" fill="#007AFF"/>
+        <text x="350" y="48" fill="#fff" font-size="13" font-weight="700">categories</text>
+        <text x="350" y="76" font-size="11">[PK] id</text>
+        <text x="350" y="94" font-size="11">[FK] genre_id</text>
+        <text x="350" y="112" font-size="11">name</text>
+        <text x="350" y="130" font-size="11">UNIQUE(genre_id, name)</text>
+
+        <rect x="340" y="220" width="235" height="208" rx="10" fill="#FFFFFF" stroke="#18222E" stroke-width="2"/>
+        <rect x="340" y="220" width="235" height="26" rx="10" fill="#18222E"/>
+        <text x="350" y="238" fill="#fff" font-size="13" font-weight="700">tasks</text>
+        <text x="350" y="266" font-size="11">[PK] id</text>
+        <text x="350" y="284" font-size="11">no</text>
+        <text x="350" y="302" font-size="11">[FK] genre_id (NOT NULL)</text>
+        <text x="350" y="320" font-size="11">[FK] category_id (NULL可)</text>
+        <text x="350" y="338" font-size="11">content / result</text>
+        <text x="350" y="356" font-size="11">date_start / date_end</text>
+        <text x="350" y="374" font-size="11">priority / status</text>
+        <text x="350" y="392" font-size="11">completed_at</text>
+        <text x="350" y="410" font-size="11">created_at / updated_at</text>
+
+
+        <rect x="660" y="30" width="200" height="90" rx="10" fill="#FFFFFF" stroke="#8E8E93" stroke-width="2"/>
+        <rect x="660" y="30" width="200" height="26" rx="10" fill="#8E8E93"/>
+        <text x="670" y="48" fill="#fff" font-size="13" font-weight="700">app_meta</text>
+        <text x="670" y="76" font-size="11">[PK] key</text>
+        <text x="670" y="94" font-size="11">value</text>
+
+        <line x1="230" y1="90" x2="340" y2="90" stroke="#18222E" stroke-width="1.5" marker-start="url(#one)" marker-end="url(#many)"/>
+        <text x="255" y="83" font-size="10" fill="#767A73">1 : N</text>
+
+        <line x1="447" y1="148" x2="447" y2="220" stroke="#18222E" stroke-width="1.5" marker-start="url(#one)" marker-end="url(#many)"/>
+        <text x="455" y="190" font-size="10" fill="#767A73">1 : N (category_id)</text>
+
+        <path d="M130 148 Q130 190 210 190 L310 190 Q340 190 355 220" fill="none" stroke="#18222E" stroke-width="1.5" marker-start="url(#one)" marker-end="url(#many)"/>
+        <text x="152" y="184" font-size="10" fill="#767A73">1 : N (genre_id)</text>
+      </svg>
+      <p class="text-xs mt-3" style="color:var(--muted)">関連はすべて外部キー制約付き。<code class="inl">app_meta</code> は他テーブルと関連を持たない独立したテーブル。</p>
+    </div>
+  </section>
+
+  <!-- 3 genres -->
+  <section id="t-genre" class="mb-10">
+    <h2 class="mb-3">3. genres（ジャンル）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">旧DBの <code class="inl">customers</code> に相当。仕事用の顧客区分の代わりに、私用の大分類（例：プライベート／学習／趣味／家事）を持つ。</p>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:130px">カラム</th><th style="width:110px">型</th><th style="width:110px">制約</th><th style="width:120px">既定値</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">id</td><td class="mono">INTEGER</td><td><span class="pk">PK</span></td><td class="mono">AUTOINCREMENT</td><td>ジャンルID</td></tr>
+          <tr><td class="mono">name</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span> UNIQUE</td><td>—</td><td>ジャンル名。全体で一意</td></tr>
+          <tr><td class="mono">color</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">'#007AFF'</td><td>一覧のバッジ色・カレンダーのバー色（<code class="inl">#RRGGBB</code>）。iOSシステムカラーから採る</td></tr>
+          <tr><td class="mono">sort_order</td><td class="mono">INTEGER</td><td><span class="nn">NOT NULL</span></td><td class="mono">0</td><td>ダッシュボードの表示順。昇順、同値は <code class="inl">id</code> 昇順</td></tr>
+          <tr><td class="mono">created_at</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">ISO8601</td><td>作成日時</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card p-4 mt-3 text-sm">
+      <b>初期データ</b>
+      <p style="color:var(--muted)" class="mt-1">起動時に <code class="inl">genres</code> が空なら以下を投入する。旧実装の「GP / らくすむ / セオリアファーマ / その他」は仕事用のため投入しない。</p>
+      <div class="mono text-xs mt-2">プライベート ／ 学習 ／ 趣味 ／ 家事 ／ その他</div>
+    </div>
+  </section>
+
+  <!-- 4 categories -->
+  <section id="t-category" class="mb-10">
+    <h2 class="mb-3">4. categories（カテゴリ）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">ジャンル配下の小分類。旧DB <code class="inl">categories</code> の <code class="inl">customer_id</code> を <code class="inl">genre_id</code> に置換したもの。</p>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:130px">カラム</th><th style="width:110px">型</th><th style="width:110px">制約</th><th style="width:120px">既定値</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">id</td><td class="mono">INTEGER</td><td><span class="pk">PK</span></td><td class="mono">AUTOINCREMENT</td><td>カテゴリID</td></tr>
+          <tr><td class="mono">genre_id</td><td class="mono">INTEGER</td><td><span class="fk">FK</span> <span class="nn">NOT NULL</span></td><td>—</td><td>→ <code class="inl">genres.id</code>　<code class="inl">ON DELETE CASCADE</code></td></tr>
+          <tr><td class="mono">name</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td>—</td><td>カテゴリ名</td></tr>
+          <tr><td class="mono">sort_order</td><td class="mono">INTEGER</td><td><span class="nn">NOT NULL</span></td><td class="mono">0</td><td>同一ジャンル内の表示順</td></tr>
+          <tr><td class="mono">created_at</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">ISO8601</td><td>作成日時</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-sm mt-2" style="color:var(--muted)">複合一意制約：<code class="inl">UNIQUE(genre_id, name)</code>。異なるジャンルであれば同名カテゴリを作れる（例：「学習／読書」と「趣味／読書」）。</p>
+  </section>
+
+  <!-- 5 tasks -->
+  <section id="t-task" class="mb-10">
+    <h2 class="mb-3">5. tasks（タスク）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">本アプリで唯一のトランザクションテーブル。完了タスクもここに残り続ける。</p>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:135px">カラム</th><th style="width:110px">型</th><th style="width:130px">制約</th><th style="width:110px">既定値</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">id</td><td class="mono">INTEGER</td><td><span class="pk">PK</span></td><td class="mono">AUTOINCREMENT</td><td>タスクID</td></tr>
+          <tr><td class="mono">no</td><td class="mono">INTEGER</td><td><span class="nn">NOT NULL</span></td><td class="mono">MAX(no)+1</td><td>表示用連番。一意制約なし（欠番・重複を許容）</td></tr>
+          <tr><td class="mono">genre_id</td><td class="mono">INTEGER</td><td><span class="fk">FK</span> <span class="nn">NOT NULL</span></td><td>—</td><td>→ <code class="inl">genres.id</code>　<code class="inl">ON DELETE RESTRICT</code></td></tr>
+          <tr><td class="mono">category_id</td><td class="mono">INTEGER</td><td><span class="fk">FK</span> NULL可</td><td class="mono">NULL</td><td>→ <code class="inl">categories.id</code>　<code class="inl">ON DELETE SET NULL</code>。未分類はNULL</td></tr>
+          <tr><td class="mono">content</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td>—</td><td>タスク内容（本文）。空文字は不可</td></tr>
+          <tr><td class="mono">result</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">''</td><td>結果メモ（詳細シートの自由記述）</td></tr>
+          <tr><td class="mono">date_start</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">''</td><td>期限日／期間の開始日 <code class="inl">'YYYY-MM-DD'</code>。未設定は空文字</td></tr>
+          <tr><td class="mono">date_end</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">''</td><td>期間の終了日。単日タスクは空文字</td></tr>
+          <tr><td class="mono">priority</td><td class="mono">INTEGER</td><td><span class="nn">NOT NULL</span> CHECK</td><td class="mono">0</td><td>フラグ。1=フラグ付き</td></tr>
+          <tr><td class="mono">status</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span> CHECK</td><td class="mono">'active'</td><td><code class="inl">'active'</code> / <code class="inl">'pending'</code> / <code class="inl">'completed'</code> の3値</td></tr>
+          <tr><td class="mono">completed_at</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">''</td><td>完了にした日時（ISO8601）。完了以外は空文字。「実行済」の並び順に使う</td></tr>
+          <tr><td class="mono">created_at</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">ISO8601</td><td>作成日時</td></tr>
+          <tr><td class="mono">updated_at</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td class="mono">ISO8601</td><td>更新日時。UPDATE時に必ず更新</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card p-4 mt-3 text-sm space-y-2">
+      <div><b>旧DBからのカラム名変更</b></div>
+      <table class="mt-1">
+        <thead><tr><th style="width:200px">旧（tasks）</th><th style="width:200px">新（tasks）</th><th>備考</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">project TEXT</td><td class="mono">genre_id INTEGER</td><td>顧客名の文字列 → ジャンルIDへ正規化</td></tr>
+          <tr><td class="mono">category TEXT</td><td class="mono">category_id INTEGER</td><td>カテゴリ名の文字列 → カテゴリIDへ正規化</td></tr>
+          <tr><td class="mono">date TEXT</td><td class="mono">date_start TEXT</td><td><code class="inl">date_end</code> と対になる名前へ改称</td></tr>
+          <tr><td class="mono">createdAt / updatedAt</td><td class="mono">created_at / updated_at</td><td>Python側の慣例に合わせスネークケースへ統一</td></tr>
+          <tr><td>（なし）</td><td class="mono">completed_at TEXT</td><td>新規。旧実装は完了日時を記録していなかった</td></tr>
+        </tbody>
+      </table>
+
+      <div class="p-3 rounded-lg mt-2" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">completed_at の更新規則（要注意）</b>
+        <p class="mt-1" style="color:var(--muted)"><code class="inl">completed_at</code> は「<b style="color:var(--ink)">完了でなかったものが完了になった瞬間</b>」にだけ打つ。既に完了のタスクを編集保存しただけで打ち直すと、「実行済」の並び順が編集順になってしまい、いつ終えたかが分からなくなる。完了以外へ戻した時は空文字でクリアする。</p>
+      </div>
+
+      <div class="p-3 rounded-lg" style="background:#FFF4E6;border:1px solid #FFD9A8">
+        <b style="color:var(--flag)">期間タスクの扱い（要注意）</b>　<code class="inl">date_end</code> が空文字のときは単日タスクとして <code class="inl">date_start</code> のみを判定に使う。<code class="inl">date_end</code> がある場合、スマートリストの期間判定は「<code class="inl">date_start</code>〜<code class="inl">date_end</code> の範囲が対象期間と重なるか」で行う（<a href="detailed_design.html#smartlist" style="color:var(--accent)">詳細設計書 9章</a>）。
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 meta -->
+  <section id="t-meta" class="mb-10">
+    <h2 class="mb-3">7. app_meta（スキーマ管理）</h2>
+    <p class="text-sm mb-3" style="color:var(--muted)">旧実装は <code class="inl">ALTER TABLE</code> を try/catch で握りつぶす方式だったが、本設計ではスキーマ版数を明示管理する。</p>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:160px">カラム</th><th style="width:130px">型</th><th style="width:110px">制約</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">key</td><td class="mono">TEXT</td><td><span class="pk">PK</span></td><td>キー名。<code class="inl">'schema_version'</code> / <code class="inl">'window_size'</code></td></tr>
+          <tr><td class="mono">value</td><td class="mono">TEXT</td><td><span class="nn">NOT NULL</span></td><td>値</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-sm mt-2" style="color:var(--muted)">起動時に <code class="inl">schema_version</code> を読み、コード側の期待版数より小さければ順にマイグレーション関数を適用して版数を更新する。初回作成時は <code class="inl">'1'</code> を書き込む。</p>
+    <div class="card overflow-x-auto mt-3">
+      <table>
+        <thead><tr><th style="width:190px">キー</th><th style="width:140px">値の例</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">schema_version</td><td class="mono">'1'</td><td>DDLの版数</td></tr>
+          <tr><td class="mono">window_size</td><td class="mono">'900x700'</td><td>前回閉じたときのウィンドウサイズ。未設定なら初回として 390×820 で開く（<a href="detailed_design.html#responsive" style="color:var(--accent)">詳細設計書 11章</a>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 8 区分値 -->
+  <section id="codes" class="mb-10">
+    <h2 class="mb-3">8. 区分値（コード定義）</h2>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="card overflow-x-auto">
+        <table>
+          <thead><tr><th colspan="3">tasks.status</th></tr><tr><th style="width:110px">値</th><th style="width:80px">表示</th><th>意味</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">active</td><td>未完了</td><td>通常の未処理タスク</td></tr>
+            <tr><td class="mono">pending</td><td>保留</td><td>着手できない事情があり止めているもの。未完了リストには出る。一覧では末尾の保留トグル（オレンジの時計）とメタ行のバッジで示す</td></tr>
+            <tr><td class="mono">completed</td><td>完了</td><td>済んだタスク。<code class="inl">completed_at</code> が入る</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card overflow-x-auto">
+        <table>
+          <thead><tr><th colspan="3">tasks.priority</th></tr><tr><th style="width:110px">値</th><th style="width:80px">表示</th><th>意味</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">0</td><td>—</td><td>通常</td></tr>
+            <tr><td class="mono">1</td><td>旗</td><td>フラグ付き。スマートリスト「フラグ付き」の対象</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card p-4 mt-4 text-sm" style="border-left:4px solid var(--flag)">
+      <b>保留（pending）について</b>
+      <p class="mt-1" style="color:var(--muted)">移植元の詳細画面には「保留」の選択肢があったが、<b style="color:var(--ink)">保留タスクを一覧する手段が用意されておらず</b>、切り替えるにも毎回詳細画面を開く必要があった。保留にすると事実上見失う状態だったため、本設計ではスマートリストに「保留」を追加し、さらに一覧の行から1タップで切り替えられるようにする。</p>
+    </div>
+
+    <div class="card overflow-x-auto mt-4">
+      <table>
+        <thead><tr><th colspan="3">スマートリスト種別（DB保持ではなくAPIパラメータ）</th></tr><tr><th style="width:140px">キー</th><th style="width:110px">表示</th><th>抽出条件（概要）</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">overdue</td><td>遅延</td><td>終端日 &lt; 本日</td></tr>
+          <tr><td class="mono">today</td><td>今日</td><td>期間が本日と重なる</td></tr>
+          <tr><td class="mono">tomorrow</td><td>明日</td><td>期間が翌日と重なる</td></tr>
+          <tr><td class="mono">this-week</td><td>今週</td><td>期間が今週（月〜日）と重なる</td></tr>
+          <tr><td class="mono">next-week</td><td>来週</td><td>期間が来週（月〜日）と重なる</td></tr>
+          <tr><td class="mono">this-month</td><td>今月</td><td>期間が当月と重なる</td></tr>
+          <tr><td class="mono">next-month</td><td>来月</td><td>期間が翌月と重なる</td></tr>
+          <tr><td class="mono">all</td><td>すべて</td><td>条件なし</td></tr>
+          <tr><td class="mono">flagged</td><td>フラグ付き</td><td>priority = 1</td></tr>
+          <tr><td class="mono">pending</td><td>保留</td><td>status = 'pending'（表示可否の対象外）</td></tr>
+          <tr><td class="mono">completed</td><td>実行済</td><td>status = 'completed'（表示可否の対象外）。completed_at 降順で並べる</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-sm mt-2" style="color:var(--muted)">名称は移植元の画面表記に合わせる（「遅延」「フラグ付き」「実行済」）。「保留」のみ本設計で追加。</p>
+    <p class="text-sm mt-2" style="color:var(--muted)">各リストは上の条件を評価する前に、<b style="color:var(--ink)">既定で保留（pending）と完了（completed）を落とす</b>。絞り込みの「保留済を表示」「実行済を表示」で足す（<a href="detailed_design.html#filter" style="color:var(--accent)">詳細設計書 10章</a>）。「保留」「実行済」の2リストだけは対象外。</p>
+  </section>
+
+  <!-- 9 index -->
+  <section id="index" class="mb-10">
+    <h2 class="mb-3">8. インデックス設計</h2>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th style="width:230px">インデックス名</th><th style="width:240px">対象</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">idx_tasks_genre</td><td class="mono">tasks(genre_id, status)</td><td>ジャンル絞り込み＋ステータス絞り込み</td></tr>
+          <tr><td class="mono">idx_tasks_category</td><td class="mono">tasks(category_id)</td><td>カテゴリ絞り込み・カテゴリ削除時の追従</td></tr>
+          <tr><td class="mono">idx_tasks_date</td><td class="mono">tasks(date_start, date_end)</td><td>スマートリストの期間判定・カレンダー表示・期間での絞り込み</td></tr>
+          <tr><td class="mono">idx_tasks_status</td><td class="mono">tasks(status, no)</td><td>既定ソート（未完了→保留→完了、no昇順）</td></tr>
+          <tr><td class="mono">idx_tasks_completed</td><td class="mono">tasks(completed_at DESC)</td><td>「実行済」を完了日時の降順で表示</td></tr>
+          <tr><td class="mono">idx_cat_genre</td><td class="mono">categories(genre_id, sort_order)</td><td>ジャンル配下カテゴリの取得</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-sm mt-2" style="color:var(--muted)">個人用途で件数は数千件規模を想定。件数が少ないうちは効果が出ないが、カレンダー画面の範囲検索が全表走査になるのを避けるため <code class="inl">idx_tasks_date</code> は初期から張る。</p>
+  </section>
+
+  <!-- 10 DDL -->
+  <section id="ddl" class="mb-10">
+    <h2 class="mb-3">9. DDL全文</h2>
+    <pre>PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+
+CREATE TABLE IF NOT EXISTS genres (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL UNIQUE,
+    color       TEXT    NOT NULL DEFAULT '#007AFF',
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    genre_id    INTEGER NOT NULL,
+    name        TEXT    NOT NULL,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL,
+    FOREIGN KEY (genre_id) REFERENCES genres(id) ON DELETE CASCADE,
+    UNIQUE (genre_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    no           INTEGER NOT NULL DEFAULT 0,
+    genre_id     INTEGER NOT NULL,
+    category_id  INTEGER,
+    content      TEXT    NOT NULL,
+    result       TEXT    NOT NULL DEFAULT '',
+    date_start   TEXT    NOT NULL DEFAULT '',
+    date_end     TEXT    NOT NULL DEFAULT '',
+    priority     INTEGER NOT NULL DEFAULT 0 CHECK (priority IN (0, 1)),
+    status       TEXT    NOT NULL DEFAULT 'active'
+                         CHECK (status IN ('active', 'pending', 'completed')),
+    completed_at TEXT    NOT NULL DEFAULT '',
+    created_at   TEXT    NOT NULL,
+    updated_at   TEXT    NOT NULL,
+    FOREIGN KEY (genre_id)    REFERENCES genres(id)     ON DELETE RESTRICT,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_genre     ON tasks(genre_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_category  ON tasks(category_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_date      ON tasks(date_start, date_end);
+CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks(status, no);
+CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cat_genre       ON categories(genre_id, sort_order);</pre>
+  </section>
+
+  <!-- 11 migrate -->
+  <section id="migrate" class="mb-10">
+    <h2 class="mb-3">10. 旧DBからの移行</h2>
+    <div class="card p-5 text-sm space-y-2 mb-3">
+      <p>移行元：<code class="inl">C:\Windows11\work\todo_app\data\tasks.db</code>（better-sqlite3 が作成したSQLiteファイル）。同じSQLiteなので <code class="inl">ATTACH</code> で直接読める。</p>
+      <p style="color:var(--muted)">旧 <code class="inl">tasks.project</code> は顧客名（GP／らくすむ／セオリアファーマ／その他）であり、私用アプリでは意味を持たない。下記SQLは名前をそのまま暫定ジャンルとして取り込む（移行後に画面上で改名・統合する前提）。過去データを引き継がず新規に作り直す場合、本節は不要。</p>
+      <p style="color:var(--muted)">旧 <code class="inl">tasks_archived</code> の行は<b style="color:var(--ink)">完了タスクとして <code class="inl">tasks</code> に取り込む</b>。アーカイブという区分自体を持たないため、通常の完了タスクと同じ扱いになる。</p>
+    </div>
+    <pre>-- tools/migrate_from_old.py が実行するSQLの骨子
+ATTACH DATABASE 'C:\Windows11\work\todo_app\data\tasks.db' AS old;
+
+-- 1) 旧 project を暫定ジャンルとして取り込む（tasks と tasks_archived の両方から）
+INSERT OR IGNORE INTO genres (name, color, sort_order, created_at)
+SELECT DISTINCT CASE WHEN project IS NULL OR project = '' THEN 'その他' ELSE project END,
+       '#007AFF', 0, datetime('now', 'localtime')
+FROM (SELECT project FROM old.tasks UNION SELECT project FROM old.tasks_archived);
+
+-- 2) 旧 category（文字列）を対応ジャンル配下のカテゴリとして取り込む
+INSERT OR IGNORE INTO categories (genre_id, name, sort_order, created_at)
+SELECT DISTINCT g.id, x.category, 0, datetime('now', 'localtime')
+FROM (SELECT project, category FROM old.tasks
+      UNION SELECT project, category FROM old.tasks_archived) x
+JOIN genres g
+  ON g.name = CASE WHEN x.project IS NULL OR x.project = ''
+                   THEN 'その他' ELSE x.project END
+WHERE x.category IS NOT NULL AND x.category != '';
+
+-- 3) タスク本体を移送（文字列 → ID解決）
+INSERT INTO tasks (no, genre_id, category_id, content, result,
+                   date_start, date_end, priority, status, completed_at,
+                   created_at, updated_at)
+SELECT t.no, g.id, c.id, t.content, COALESCE(t.result, ''),
+       COALESCE(t.date, ''), COALESCE(t.date_end, ''),
+       COALESCE(t.priority, 0),
+       CASE WHEN t.status = 'completed' THEN 'completed'
+            WHEN t.status = 'pending'   THEN 'pending'
+            ELSE 'active' END,
+       -- 旧DBに完了日時は無い。完了済みは updatedAt で代用する
+       CASE WHEN t.status = 'completed'
+            THEN COALESCE(t.updatedAt, t.createdAt, '') ELSE '' END,
+       COALESCE(t.createdAt, datetime('now', 'localtime')),
+       COALESCE(t.updatedAt, t.createdAt, datetime('now', 'localtime'))
+FROM old.tasks t
+JOIN genres g
+  ON g.name = CASE WHEN t.project IS NULL OR t.project = ''
+                   THEN 'その他' ELSE t.project END
+LEFT JOIN categories c ON c.genre_id = g.id AND c.name = t.category
+WHERE t.content IS NOT NULL AND t.content != '';
+
+-- 4) 旧アーカイブは「完了タスク」として同じ tasks へ取り込む
+INSERT INTO tasks (no, genre_id, category_id, content, result,
+                   date_start, date_end, priority, status, completed_at,
+                   created_at, updated_at)
+SELECT a.no, g.id, c.id, a.content, COALESCE(a.result, ''),
+       COALESCE(a.date, ''), COALESCE(a.date_end, ''),
+       COALESCE(a.priority, 0), 'completed',
+       -- アーカイブ日時を完了日時として使う
+       COALESCE(a.archivedAt, a.updatedAt, a.createdAt, ''),
+       COALESCE(a.createdAt, datetime('now', 'localtime')),
+       COALESCE(a.updatedAt, a.createdAt, datetime('now', 'localtime'))
+FROM old.tasks_archived a
+JOIN genres g
+  ON g.name = CASE WHEN a.project IS NULL OR a.project = ''
+                   THEN 'その他' ELSE a.project END
+LEFT JOIN categories c ON c.genre_id = g.id AND c.name = a.category
+WHERE a.content IS NOT NULL AND a.content != '';
+
+-- 5) no を振り直す（3と4で重複しているため）
+UPDATE tasks SET no = (SELECT COUNT(*) FROM tasks t2 WHERE t2.id &lt;= tasks.id);
+
+DETACH DATABASE old;</pre>
+    <div class="card p-4 mt-3 text-sm" style="border-left:4px solid var(--danger)">
+      <b style="color:var(--danger)">移行時の注意</b>
+      <ul class="list-disc list-inside mt-1 space-y-1" style="color:var(--muted)">
+        <li>移行は必ず新規の空 <code class="inl">todo.db</code> に対して1回だけ実行する。再実行すると 3) 4) が重複投入される（<code class="inl">INSERT OR IGNORE</code> が効くのは 1) 2) のみ）。実行前に <code class="inl">SELECT COUNT(*) FROM tasks</code> が0であることを確認する。</li>
+        <li>旧 <code class="inl">tasks</code> と <code class="inl">tasks_archived</code> で <code class="inl">no</code> が重複しているため、5) で必ず振り直す。これを省くと一覧の並びが崩れる。</li>
+        <li>旧 <code class="inl">tasks.date</code> はCSV取込由来で書式が混在している可能性がある。移行後に点検する：<br><code class="inl">SELECT id, date_start FROM tasks WHERE date_start != '' AND date_start NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]';</code></li>
+        <li>旧DBは <code class="inl">customers</code> / <code class="inl">categories</code> マスタを持つが、タスク側は文字列参照だったため両者が食い違っている場合がある。上記SQLはタスクの実データ側を正とする。</li>
+        <li>移行前に旧 <code class="inl">tasks.db</code> を別名でコピーしておく。<code class="inl">ATTACH</code> は読み取りのみだが、誤操作に備える。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 12 sqlite -->
+  <section id="sqlite" class="mb-10">
+    <h2 class="mb-3">11. SQLite固有の実装事項</h2>
+    <div class="card p-5 text-sm space-y-4">
+      <div>
+        <h3 class="mb-1">外部キーの有効化（必須）</h3>
+        <p style="color:var(--muted)">SQLiteは既定で外部キー制約が<b style="color:var(--danger)">無効</b>。接続ごとに <code class="inl">PRAGMA foreign_keys = ON</code> を発行しないと <code class="inl">ON DELETE CASCADE</code> も <code class="inl">RESTRICT</code> も効かない。接続生成処理（<code class="inl">db.get_conn()</code>）の中で必ず実行する。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">スレッド安全性</h3>
+        <p style="color:var(--muted)">js_api の各呼び出しは、UIスレッドとは別のワーカースレッドで実行される。<code class="inl">sqlite3.Connection</code> は既定で生成スレッド以外から使えないため、<b style="color:var(--ink)">呼び出しごとに接続を開いて閉じる</b>方針とする（<code class="inl">contextmanager</code> で包む）。<code class="inl">check_same_thread=False</code> で接続を使い回す実装は競合の原因になるため採らない。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">行アクセス</h3>
+        <p style="color:var(--muted)"><code class="inl">conn.row_factory = sqlite3.Row</code> を設定し、<code class="inl">dict(row)</code> でJSON化する。タプル添字参照はカラム追加時に壊れるため使わない。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">型・制約のマッピング</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:150px">論理型</th><th style="width:200px">SQLite型</th><th>備考</th></tr></thead>
+          <tbody>
+            <tr><td>ID</td><td class="mono">INTEGER PRIMARY KEY</td><td><code class="inl">AUTOINCREMENT</code> 指定でIDの再利用を防ぐ</td></tr>
+            <tr><td>真偽値</td><td class="mono">INTEGER (0/1)</td><td>SQLiteにBOOLEAN型は無い。API境界でbool変換する</td></tr>
+            <tr><td>日付</td><td class="mono">TEXT 'YYYY-MM-DD'</td><td>辞書順比較がそのまま日付比較になる</td></tr>
+            <tr><td>日時</td><td class="mono">TEXT ISO8601</td><td>Python側は <code class="inl">datetime.now().isoformat(timespec='seconds')</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3 class="mb-1">WALモードとバックアップ</h3>
+        <p style="color:var(--muted)"><code class="inl">journal_mode=WAL</code> を有効にすると <code class="inl">todo.db-wal</code> / <code class="inl">todo.db-shm</code> が併存する。手動バックアップで <code class="inl">todo.db</code> だけコピーすると未反映分を失うため、アプリ終了時に <code class="inl">PRAGMA wal_checkpoint(TRUNCATE)</code> を実行してから閉じる。</p>
+      </div>
+      <div>
+        <h3 class="mb-1">参照整合性・削除規則の方針（要注意）</h3>
+        <table class="mt-1">
+          <thead><tr><th style="width:210px">操作</th><th style="width:130px">規則</th><th>挙動</th></tr></thead>
+          <tbody>
+            <tr><td>ジャンル削除（タスク）</td><td class="mono">RESTRICT</td><td>配下にタスクが1件でも残っていると削除が失敗する。UI側で「タスクを別ジャンルへ移動してから削除」を促す</td></tr>
+            <tr><td>ジャンル削除（カテゴリ）</td><td class="mono">CASCADE</td><td>配下カテゴリは同時に削除される</td></tr>
+            <tr><td>カテゴリ削除</td><td class="mono">SET NULL</td><td>そのカテゴリを持つタスクは「なし」になる（タスク自体は消えない）</td></tr>
+            <tr><td>ジャンル／カテゴリの改名</td><td>—</td><td>ID参照のためタスク側の更新は不要</td></tr>
+          </tbody>
+        </table>
+        <div class="p-3 rounded-lg mt-3" style="background:#FFF4E6;border:1px solid #FFD9A8">
+          <b style="color:var(--flag)">ジャンル削除を CASCADE にしない理由</b>
+          <p class="mt-1" style="color:var(--muted)">CASCADEにすると、ジャンルを1つ消した拍子に配下のタスクが黙って全部消える。個人のタスク履歴を誤操作で失う影響が大きいため、明示的に移動させてからでないと消せないようにする。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="text-center text-xs mt-12 mb-4" style="color:var(--muted)">DB設計書 Ver 1.1 ｜ <a href="index.html" style="color:var(--accent)">設計一式へ戻る</a> ｜ <a href="detailed_design.html" style="color:var(--accent)">詳細設計書</a></p>
+</div>
+</body>
+</html>
