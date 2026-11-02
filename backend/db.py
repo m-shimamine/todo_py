@@ -7,7 +7,6 @@ sqlite3.Connection は生成スレッド以外から使えないため、接続�
 """
 
 import logging
-import shutil
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -172,31 +171,35 @@ def set_meta(key: str, value: str) -> None:
         )
 
 
-def backup_on_startup() -> None:
-    """data/backup へ日付ごとのコピーを置く（同日分は上書き）。"""
+def backup(target_dir=BACKUP_DIR, keep: int = BACKUP_KEEP):
+    """target_dir へ日付ごとのコピーを置く（同日分は上書き）。
+
+    作ったファイルのパスを返す。DB が無ければ None。失敗は例外のまま上げる。
+    """
     if not DB_FILE.exists():
-        return
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    target = BACKUP_DIR / ("todo_%s.db" % date.today().strftime("%Y%m%d"))
+        return None
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / ("todo_%s.db" % date.today().strftime("%Y%m%d"))
+
+    # WAL の未反映分も含めてコピーするため sqlite3 の backup API を使う。
+    # ファイルコピーだと -wal に残った分を取りこぼす。
+    src = sqlite3.connect(str(DB_FILE))
+    dst = sqlite3.connect(str(target))
     try:
-        # WAL の未反映分も含めてコピーするため sqlite3 の backup API を使う。
-        # ファイルコピーだと -wal に残った分を取りこぼす。
-        src = sqlite3.connect(str(DB_FILE))
-        dst = sqlite3.connect(str(target))
         with dst:
             src.backup(dst)
+    finally:
         dst.close()
         src.close()
-    except Exception:
-        log.exception("バックアップに失敗した")
-        return
 
-    olds = sorted(BACKUP_DIR.glob("todo_*.db"))
-    for path in olds[:-BACKUP_KEEP]:
+    # 消すのは自分が作った名前のファイルだけ
+    olds = sorted(target_dir.glob("todo_[0-9]*.db"))
+    for path in olds[:-keep]:
         try:
             path.unlink()
         except OSError:
             log.warning("古いバックアップを消せなかった: %s", path)
+    return target
 
 
 def checkpoint_and_close() -> None:

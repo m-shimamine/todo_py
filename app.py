@@ -10,12 +10,14 @@ import sys
 
 import webview
 
-from backend import csv_import, db
+from backend import csv_import, db, settings
 from backend.api import Api
 from backend.config import (
     FIRST_WINDOW,
     INDEX_HTML,
+    INSTANCE_MUTEX,
     LOG_FILE,
+    MAIN_TITLE,
     MIN_WINDOW,
     SCREEN_MARGIN,
 )
@@ -24,6 +26,9 @@ WINDOW_SIZE_KEY = "window_size"
 
 # resized イベントで受け取った最新サイズ。終了時にこれを保存する。
 _last_size = None
+
+# 二重起動防止のミューテックス。プロセスが終わるまで握り続ける。
+_mutex = None
 
 
 def setup_logging() -> None:
@@ -34,6 +39,31 @@ def setup_logging() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         encoding="utf-8",
     )
+
+
+def _acquire_single_instance() -> bool:
+    """既に起動していれば False。そのときは既存のメインウィンドウを前面に出す。"""
+    global _mutex
+    try:
+        import ctypes
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        user32 = ctypes.windll.user32
+    except Exception:
+        return True                     # Windows 以外では見ない
+
+    ERROR_ALREADY_EXISTS = 183
+    kernel32.CreateMutexW.restype = ctypes.c_void_p
+    _mutex = kernel32.CreateMutexW(None, False, INSTANCE_MUTEX)
+    if ctypes.get_last_error() != ERROR_ALREADY_EXISTS:
+        return True
+
+    hwnd = user32.FindWindowW(None, MAIN_TITLE)
+    if hwnd:
+        SW_RESTORE = 9
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, SW_RESTORE)
+        user32.SetForegroundWindow(hwnd)
+    return False
 
 
 def _primary_screen():
@@ -90,10 +120,25 @@ def _save_size() -> None:
         logging.exception("ウィンドウサイズの保存に失敗した")
 
 
+def _backup_on_startup() -> None:
+    """起動時のバックアップ。失敗しても起動は止めない。"""
+    try:
+        if not settings.get("backup_enabled"):
+            return
+        path = db.backup(settings.backup_dir(), settings.get("backup_keep"))
+        if path:
+            logging.info("バックアップを作成した: %s", path)
+    except Exception:
+        logging.exception("起動時のバックアップに失敗した")
+
+
 def main() -> int:
+    if not _acquire_single_instance():
+        return 0
+
     db.init()                   # DDL適用・スキーマ版確認・初期ジャンル投入
     setup_logging()
-    db.backup_on_startup()      # data/backup へ世代バックアップ
+    _backup_on_startup()        # 設定のフォルダへ世代バックアップ
 
     try:
         result = csv_import.import_from_temp()
@@ -109,7 +154,7 @@ def main() -> int:
     api = Api()
     width, height = _initial_size()
     window = webview.create_window(
-        "タスク管理",
+        MAIN_TITLE,
         str(INDEX_HTML),        # file:// で読む（HTTPではない）
         js_api=api,
         width=width,
@@ -117,9 +162,12 @@ def main() -> int:
         min_size=MIN_WINDOW,    # これ以下には縮められない
     )
     window.events.resized += _on_resized
+    window.events.closed += api.close_all   # メインを閉じたらカレンダー・通知も閉じる
     api.set_main_window(window)   # カレンダーからタスクを開くのに使う
 
-    webview.start()             # ウィンドウを閉じるまでブロックする
+    # 期限通知は GUI が動き出してから出す（DPI 設定が済んでから位置を測るため）。
+    # 以後は設定の間隔で定期的に出す
+    webview.start(api.start_notifier)   # ウィンドウを閉じるまでブロックする
 
     _save_size()                # 次回はこのサイズで開く
     db.checkpoint_and_close()   # WALを本体へ書き戻してから終了

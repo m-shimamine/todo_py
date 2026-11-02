@@ -16,7 +16,7 @@ KEYS = (
 )
 
 # 「保留」「実行済」はそのステータスを見るためのリストなので、
-# 表示可否（show_pending / show_completed）を効かせない。
+# ステータスの絞り込み（show_pending / show_completed）を効かせない。
 VISIBILITY_EXEMPT = ("pending", "completed")
 
 # 終端日。date_end が空なら date_start を使う。

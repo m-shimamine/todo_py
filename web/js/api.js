@@ -24,6 +24,8 @@ const api = {
   createTask:      body          => call('create_task', body),
   updateTask:      (id, body)    => call('update_task', id, body),
   deleteTask:      id            => call('delete_task', id),
+  reorderTasks:    ids           => call('reorder_tasks', ids),
+  bulkUpdateTasks: (ids, body)   => call('bulk_update_tasks', ids, body),
   deleteCompleted: before        => call('delete_completed', before || ''),
   calendarTasks:   params        => call('calendar_tasks', params),
   counts:          params        => call('counts', params),
@@ -45,6 +47,15 @@ const api = {
   openCalendar:    ()            => call('open_calendar'),
   closeCalendar:   ()            => call('close_calendar'),
   focusTask:       id            => call('focus_task', id),
+  dueTasks:        ()            => call('due_tasks'),
+  closeNotify:     ()            => call('close_notify'),
+  testNotification: ()           => call('test_notification'),
+
+  // 設定
+  getSettings:     ()            => call('get_settings'),
+  saveSettings:    body          => call('save_settings', body),
+  backupNow:       ()            => call('backup_now'),
+  chooseFolder:    current       => call('choose_folder', current || ''),
 
   // インポート
   importCsv:       ()            => call('import_csv'),

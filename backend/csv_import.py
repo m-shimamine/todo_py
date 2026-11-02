@@ -12,8 +12,7 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
-from . import repository
-from .config import TEMP_DIR
+from . import repository, settings
 from .db import conn, now
 
 log = logging.getLogger(__name__)
@@ -70,16 +69,17 @@ def _stamp() -> str:
 
 
 def import_from_temp() -> dict:
-    """temp/ のCSVを取り込む。
+    """取込フォルダ（既定 temp/）のCSVを取り込む。
 
     二重取込は「先にリネームしてから読む」順序で防ぐ。取り込んでから
     リネームすると、リネームに失敗した場合（Excelで開いている等）に
     次の起動でもう一度取り込まれてしまう。
     """
-    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    folder = settings.import_dir()      # 設定画面で変えられる。既定は temp/
+    folder.mkdir(parents=True, exist_ok=True)
 
     targets = sorted(
-        p for p in TEMP_DIR.glob("*.csv")
+        p for p in folder.glob("*.csv")
         if p.is_file() and IMPORTED_MARK not in p.name
     )
 

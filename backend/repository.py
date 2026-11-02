@@ -165,6 +165,94 @@ def update_task(task_id: int, body: dict) -> dict:
     return _task(row)
 
 
+def bulk_update(ids: List[int], body: dict) -> int:
+    """選んだタスクにまとめて同じ変更をかける。1トランザクションで行い、
+    途中で不正があれば全件取り消す。変更した件数を返す。
+
+    body に入っている項目だけ変える（入っていない項目は各タスクのまま）。
+      date_start / date_end : 2つで1組。date_start が空なら期限なしにする
+      priority              : bool
+      genre_id              : ジャンルを変えると、合わないカテゴリは外す
+      category_id           : None でカテゴリなし。結果のジャンルに属すること
+      status                : 'active' | 'pending' | 'completed'
+    """
+    ids = [int(i) for i in ids]
+    if not ids:
+        return 0
+    ts = now()
+
+    with conn() as c:
+        cat_genre = {r["id"]: r["genre_id"]
+                     for r in c.execute("SELECT id, genre_id FROM categories")}
+
+        if "genre_id" in body:
+            if c.execute("SELECT 1 FROM genres WHERE id = ?",
+                         (int(body["genre_id"]),)).fetchone() is None:
+                raise NotFound("ジャンルが見つかりません")
+
+        for task_id in ids:
+            row = c.execute("%s WHERE t.id = :id" % SELECT_TASK, {"id": task_id}).fetchone()
+            if row is None:
+                raise NotFound("タスクが見つかりません（ID %d）" % task_id)
+            prev = dict(row)
+            sets = {"updated_at": ts}
+
+            genre_id = prev["genre_id"]
+            if "genre_id" in body:
+                genre_id = int(body["genre_id"])
+                sets["genre_id"] = genre_id
+
+            if "category_id" in body:
+                cid = int(body["category_id"]) if body["category_id"] else None
+                if cid is not None and cat_genre.get(cid) != genre_id:
+                    raise Conflict("選んだカテゴリはジャンルが合わないタスクがあります")
+                sets["category_id"] = cid
+            elif prev["category_id"] and cat_genre.get(prev["category_id"]) != genre_id:
+                sets["category_id"] = None      # ジャンルを移したので外す
+
+            if "date_start" in body:
+                start = body.get("date_start") or ""
+                sets["date_start"] = start
+                sets["date_end"] = (body.get("date_end") or "") if start else ""
+
+            if "priority" in body:
+                sets["priority"] = 1 if body["priority"] else 0
+
+            if "status" in body:
+                sets["status"] = body["status"]
+                sets["completed_at"] = _completed_at(body["status"], prev)
+
+            c.execute(
+                "UPDATE tasks SET %s WHERE id = :id"
+                % ", ".join("%s = :%s" % (k, k) for k in sets),
+                dict(sets, id=task_id),
+            )
+    return len(ids)
+
+
+def reorder_tasks(ids: List[int]) -> None:
+    """表示中のタスクを ids の順に並べ替える。
+
+    一覧は絞り込まれているので 1..n を振り直すと、表示していない
+    タスクとの前後関係が崩れる。渡されたタスクがいま持っている no を
+    小さい順に取り、それを ids の順に配り直す（入れ替えるだけ）。
+    """
+    ids = [int(i) for i in ids]
+    if not ids:
+        return
+    with conn() as c:
+        marks = ",".join("?" * len(ids))
+        nos = sorted(
+            r[0] for r in c.execute("SELECT no FROM tasks WHERE id IN (%s)" % marks, ids)
+        )
+        if len(nos) != len(ids):
+            raise NotFound("タスクが見つかりません")
+        c.executemany(
+            "UPDATE tasks SET no = ? WHERE id = ?",
+            list(zip(nos, ids)),
+        )
+
+
 def delete_task(task_id: int) -> dict:
     task = get_task(task_id)
     with conn() as c:
@@ -201,6 +289,18 @@ def calendar_tasks(params: dict) -> List[dict]:
     sql = "%s %s ORDER BY t.date_start ASC, t.no ASC" % (SELECT_TASK, _where(clauses))
     with conn() as c:
         return [_task(r) for r in c.execute(sql, args)]
+
+
+def due_tasks(include_today: bool = True) -> List[dict]:
+    """期限が来ている未完了タスク。通知用。
+
+    include_today=False なら遅延（終端日が昨日以前）だけ。
+    保留・実行済は対象外。期限の古い順。
+    """
+    op = "<=" if include_today else "<"
+    sql = "%s WHERE t.status = 'active' AND t.date_start != '' AND %s %s :today "           "ORDER BY %s ASC, t.no ASC" % (SELECT_TASK, smartlist.END_EXPR, op, smartlist.END_EXPR)
+    with conn() as c:
+        return [_task(r) for r in c.execute(sql, {"today": today()})]
 
 
 def counts(params: Optional[dict] = None) -> dict:

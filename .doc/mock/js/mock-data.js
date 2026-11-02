@@ -13,7 +13,7 @@
 
 const ICONS = {
   search:       '<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/>',
-  gear:         '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/>',
+  gear:         '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   sliders:      '<path d="M4 7h10M18.5 7H20M4 17h4.5M13 17h7"/><circle cx="14" cy="7" r="2.2"/><circle cx="10.5" cy="17" r="2.2"/>',
   calendar:     '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   calendarDots: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="8" cy="15" r=".9"/><circle cx="12" cy="15" r=".9"/><circle cx="16" cy="15" r=".9"/>',
@@ -250,27 +250,30 @@ function emptyFilters() {
     q: '', genre_id: '', category_id: '', priority: '',
     // 期限の範囲。片方だけでも成立する
     due_from: '', due_to: '',
-    // 保留済・実行済の表示可否。既定はどちらも非表示（'' = OFF、'1' = ON）
+    // ステータスの絞り込み。どちらもOFFなら未完了だけ、ONにしたものだけに絞る（'' = OFF、'1' = ON）
     show_pending: '', show_completed: ''
   };
 }
 
 /**
- * 保留済・実行済を落とす。
- * 既定では未完了だけを見せ、チェックを入れたぶんだけ足していく。
+ * ステータスで絞る。
+ * 既定は未完了だけ。保留済・実行済にチェックがあれば、そのステータスだけに絞る。
  */
 function applyVisibility(list, f) {
-  if (f.show_pending   !== '1') list = list.filter(t => t.status !== 'pending');
-  if (f.show_completed !== '1') list = list.filter(t => t.status !== 'completed');
-  return list;
+  const shown = [];
+  if (f.show_pending   === '1') shown.push('pending');
+  if (f.show_completed === '1') shown.push('completed');
+  if (!shown.length) shown.push('active');
+  return list.filter(t => shown.includes(t.status));
 }
 
 /**
  * 絞り込みの「幅を狭める」条件が入っているか。
- * 表示可否（show_*）は範囲を広げる操作なので含めない。
+ * ステータス（show_*）も絞り込みとして扱う。
  */
 function hasNarrowingFilters(f) {
-  return ['q', 'genre_id', 'category_id', 'priority', 'due_from', 'due_to']
+  return ['q', 'genre_id', 'category_id', 'priority', 'due_from', 'due_to',
+          'show_pending', 'show_completed']
     .some(k => f[k] !== '');
 }
 
@@ -307,8 +310,8 @@ function describeFilters(f) {
   }
   if (f.priority) out.push({ key: 'priority', label: 'フラグ', value: f.priority === '1' ? 'あり' : 'なし' });
   // 既定と違う状態のときだけ出す（＝チェックが入っているとき）
-  if (f.show_pending   === '1') out.push({ key: 'show_pending',   label: '表示', value: '保留済' });
-  if (f.show_completed === '1') out.push({ key: 'show_completed', label: '表示', value: '実行済' });
+  if (f.show_pending   === '1') out.push({ key: 'show_pending',   label: 'ステータス', value: '保留済' });
+  if (f.show_completed === '1') out.push({ key: 'show_completed', label: 'ステータス', value: '実行済' });
 
   // 期限は2つの入力で1つの条件。チップも1つにまとめ、×で両方外す。
   if (f.due_from || f.due_to) {

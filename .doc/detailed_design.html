@@ -633,7 +633,7 @@ WHERE date_start != ''
             <tr><td class="mono">completed</td><td><code class="inl">status = 'completed'</code>（表示可否の対象外。並びは <code class="inl">completed_at DESC</code>）</td></tr>
           </tbody>
         </table>
-        <p class="mt-2" style="color:var(--muted)"><b style="color:var(--ink)">上の条件を評価する前に、保留済・実行済を落とす</b>（<a href="#filter" style="color:var(--accent)">10章</a>の表示可否）。そのため <code class="inl">overdue</code> と <code class="inl">flagged</code> の条件から <code class="inl">status</code> の判定が消えている。<code class="inl">pending</code> と <code class="inl">completed</code> の2つだけは、そのステータスを見るためのリストなので表示可否の対象外とする。</p>
+        <p class="mt-2" style="color:var(--muted)"><b style="color:var(--ink)">上の条件を評価する前に、ステータスで絞る</b>（<a href="#filter" style="color:var(--accent)">10章</a>。既定は未完了のみ）。そのため <code class="inl">overdue</code> と <code class="inl">flagged</code> の条件から <code class="inl">status</code> の判定が消えている。<code class="inl">pending</code> と <code class="inl">completed</code> の2つだけは、そのステータスを見るためのリストなので表示可否の対象外とする。</p>
       </div>
       <div>
         <h3 class="mb-1">日付の基準時刻（注意）</h3>
@@ -655,8 +655,8 @@ WHERE date_start != ''
           <tr><td>ジャンル</td><td class="mono">genre_id</td><td>パネルのselect</td><td>変更するとカテゴリの選択肢を配下のみに絞り直し、カテゴリ選択をクリアする</td></tr>
           <tr><td>カテゴリ</td><td class="mono">category_id</td><td>パネルのselect</td><td>ジャンル未選択時は全カテゴリを候補に出す</td></tr>
                     <tr><td>フラグ</td><td class="mono">priority</td><td>パネルのselect</td><td>フラグあり／なし</td></tr>
-          <tr><td><b>保留済を表示</b></td><td class="mono">show_pending</td><td>パネルのcheckbox</td><td><b>既定OFF。</b>ONで保留のタスクも一覧に出す</td></tr>
-          <tr><td><b>実行済を表示</b></td><td class="mono">show_completed</td><td>パネルのcheckbox</td><td><b>既定OFF。</b>ONで完了のタスクも一覧に出す</td></tr>
+          <tr><td><b>保留済のみ</b></td><td class="mono">show_pending</td><td>パネルのcheckbox</td><td><b>既定OFF。</b>ONで保留のタスクに絞る</td></tr>
+          <tr><td><b>実行済のみ</b></td><td class="mono">show_completed</td><td>パネルのcheckbox</td><td><b>既定OFF。</b>ONで完了のタスクに絞る</td></tr>
           <tr><td><b>期限の範囲</b></td><td class="mono">due_from, due_to</td><td>パネルの日付2つ（<code class="inl">〜</code> で連結）</td><td>タスクの期間がこの範囲と重なるもの。<b>2入力で1条件</b>として扱う</td></tr>
         </tbody>
       </table>
@@ -664,15 +664,15 @@ WHERE date_start != ''
 
     <div class="card p-5 text-sm space-y-3">
       <div>
-        <h3 class="mb-1">表示可否（保留済・実行済）</h3>
-        <p style="color:var(--muted)">既定では<b style="color:var(--ink)">未完了だけを見せる</b>。保留と完了はチェックを入れたぶんだけ足していく。終わったものと止まっているものが常に混ざっていると、「いま手を付けるもの」が埋もれるため。</p>
+        <h3 class="mb-1">ステータスの絞り込み（保留済・実行済）</h3>
+        <p style="color:var(--muted)">既定では<b style="color:var(--ink)">未完了だけを見せる</b>。チェックを入れると、そのステータスだけに絞る。ほかの絞り込みと同じく、チェックを入れると「すべて」を母集合にした一覧へ移る。終わったものと止まっているものが常に混ざっていると、「いま手を付けるもの」が埋もれるため。</p>
         <table class="mt-2">
           <thead><tr><th style="width:230px">チェックの状態</th><th>一覧に出るもの</th></tr></thead>
           <tbody>
             <tr><td>どちらもOFF（既定）</td><td>未完了のみ</td></tr>
-            <tr><td>保留済を表示 のみON</td><td>未完了 ＋ 保留</td></tr>
-            <tr><td>実行済を表示 のみON</td><td>未完了 ＋ 完了</td></tr>
-            <tr><td>どちらもON</td><td>すべて</td></tr>
+            <tr><td>保留済のみ だけON</td><td>保留のみ</td></tr>
+            <tr><td>実行済のみ だけON</td><td>完了のみ</td></tr>
+            <tr><td>どちらもON</td><td>保留 ＋ 完了</td></tr>
           </tbody>
         </table>
         <ul class="list-disc list-inside space-y-1 mt-2" style="color:var(--muted)">
@@ -702,7 +702,8 @@ WHERE date_start != ''
         <ul class="list-disc list-inside space-y-1" style="color:var(--muted)">
           <li>各条件は <b style="color:var(--ink)">AND</b> で結合する。空の条件は無視する。</li>
           <li>スマートリスト／ジャンル選択による絞り込みとも AND で結合する。</li>
-          <li>ただし<b style="color:var(--ink)">「絞り込む」を押した時点で母集合を「すべて」に切り替える</b>。「今日」を見ている状態で「来月の期限」を絞り込んでも0件になるだけで、利用者の意図と食い違うため。<b style="color:var(--ink)">表示可否だけを変えたときは切り替えない</b>（範囲を広げる操作のため）。</li>
+          <li><b style="color:var(--ink)">条件は入力を変えた時点で即反映する</b>（「絞り込む」ボタンは置かない。パネルは絞り込みボタンで開閉し、「条件をクリア」だけを置く）。</li>
+          <li>条件が1つでも入ると<b style="color:var(--ink)">母集合を「すべて」に切り替える</b>。「今日」を見ている状態で「来月の期限」を絞り込んでも0件になるだけで、利用者の意図と食い違うため。ステータス（保留済のみ・実行済のみ）も同じ扱い。</li>
         </ul>
       </div>
 
@@ -1209,17 +1210,18 @@ OVERLAP_SQL = (
         clauses.append("(content LIKE :q OR result LIKE :q)")
         args["q"] = f"%{params['q']}%"
 
-    # 表示可否。既定は未完了だけ（10章）
-    hidden = []
-    if apply_visibility and params.get("show_pending") != "1":
-        hidden.append("pending")
-    if apply_visibility and params.get("show_completed") != "1":
-        hidden.append("completed")
-    if hidden:
+    # ステータスの絞り込み。既定は未完了だけ、チェックがあればそれだけ（10章）
+    shown = []
+    if params.get("show_pending") == "1":
+        shown.append("pending")
+    if params.get("show_completed") == "1":
+        shown.append("completed")
+    if apply_visibility:
+        shown = shown or ["active"]
         # IN 句もプレースホルダで組む
-        keys = [f":hide{i}" for i in range(len(hidden))]
-        clauses.append(f"status NOT IN ({', '.join(keys)})")
-        args.update({k.lstrip(':'): v for k, v in zip(keys, hidden)})
+        keys = [f":show{i}" for i in range(len(shown))]
+        clauses.append(f"status IN ({', '.join(keys)})")
+        args.update({k.lstrip(':'): v for k, v in zip(keys, shown)})
 
     for key in ("genre_id", "category_id", "priority"):
         if params.get(key):
@@ -1334,7 +1336,7 @@ cd /d %~dp0
           <tr><td><b>アーカイブ</b></td><td>完了タスクを別テーブルへ物理移動</td><td><b>廃止。</b>「実行済」で代替し、<code class="inl">completed_at</code> を追加</td></tr>
           <tr><td><b>保留ステータス</b></td><td>詳細画面に選択肢はあるが<b>一覧する手段が無い</b>。切り替えるには毎回詳細を開く必要がある</td><td>スマートカード「保留」で一覧でき、<b>行の末尾に専用トグル</b>（旗の左）を置いて1タップで切り替えられる</td></tr>
           <tr><td><b>絞り込み</b></td><td>キーワード検索のみ</td><td>ジャンル・カテゴリ・フラグ・<b>期限の範囲</b>を追加。適用中の条件をチップで可視化</td></tr>
-          <tr><td><b>完了タスクの既定表示</b></td><td>日付リストに完了タスクも混ざって出る</td><td><b>既定では未完了のみ。</b>「保留済を表示」「実行済を表示」で足す</td></tr>
+          <tr><td><b>完了タスクの既定表示</b></td><td>日付リストに完了タスクも混ざって出る</td><td><b>既定では未完了のみ。</b>「保留済のみ」「実行済のみ」で絞る</td></tr>
           <tr><td><b>レスポンシブ</b></td><td><code class="inl">@media</code> が1つも無い。縮めると横スクロールで操作不能、最大化しても640pxのまま</td><td>縮小は360×480まで耐え、<b>1024pxで3カラム</b>へ組み替える。詳細は狭い時だけ下から、広い時は右サイドパネル</td></tr>
           <tr><td>ランタイム</td><td>Electron 32 + Node 18（node_modules 同梱）</td><td>Python + OS標準のWebView2。配布物が大幅に軽量</td></tr>
           <tr><td>依存ライブラリ</td><td>express / better-sqlite3 / electron ほか</td><td><b>pywebview のみ</b>（sqlite3 は標準ライブラリ）</td></tr>

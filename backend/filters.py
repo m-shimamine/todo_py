@@ -9,17 +9,17 @@ from typing import Dict, List, Tuple
 from .smartlist import END_EXPR
 
 
-def hidden_statuses(params: dict) -> List[str]:
-    """既定で隠すステータス。
+def shown_statuses(params: dict) -> List[str]:
+    """表示するステータス。
 
-    既定は未完了だけを見せ、チェックを入れたぶんだけ足していく。
+    既定は未完了だけ。保留済・実行済にチェックがあれば、そのステータスだけに絞る。
     """
-    hidden = []
-    if str(params.get("show_pending", "")) != "1":
-        hidden.append("pending")
-    if str(params.get("show_completed", "")) != "1":
-        hidden.append("completed")
-    return hidden
+    shown = []
+    if str(params.get("show_pending", "")) == "1":
+        shown.append("pending")
+    if str(params.get("show_completed", "")) == "1":
+        shown.append("completed")
+    return shown or ["active"]
 
 
 def build(params: dict, apply_visibility: bool = True) -> Tuple[List[str], Dict[str, object]]:
@@ -36,12 +36,11 @@ def build(params: dict, apply_visibility: bool = True) -> Tuple[List[str], Dict[
         args["q"] = "%%%s%%" % params["q"]
 
     if apply_visibility:
-        hidden = hidden_statuses(params)
-        if hidden:
-            keys = [":hide%d" % i for i in range(len(hidden))]
-            clauses.append("t.status NOT IN (%s)" % ", ".join(keys))
-            for k, v in zip(keys, hidden):
-                args[k[1:]] = v
+        shown = shown_statuses(params)
+        keys = [":show%d" % i for i in range(len(shown))]
+        clauses.append("t.status IN (%s)" % ", ".join(keys))
+        for k, v in zip(keys, shown):
+            args[k[1:]] = v
 
     for key in ("genre_id", "category_id", "priority"):
         value = params.get(key)
@@ -66,4 +65,4 @@ def build(params: dict, apply_visibility: bool = True) -> Tuple[List[str], Dict[
 
 def visible(task: dict, params: dict) -> bool:
     """1件が表示可否を通るか（件数集計用）。build と同じ規則。"""
-    return task["status"] not in hidden_statuses(params)
+    return task["status"] in shown_statuses(params)

@@ -239,8 +239,6 @@ button { cursor: pointer; background: none; border: none; }
   color: var(--ios-blue);
 }
 
-.filter-actions button.primary { background: var(--ios-blue); color: #fff; }
-
 /* 適用中の条件チップ */
 
 .active-filters {

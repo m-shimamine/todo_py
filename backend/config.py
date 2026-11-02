@@ -48,6 +48,15 @@ MIN_WINDOW = (360, 480)
 # カレンダーは別ウィンドウで開く。横に長いので幅を広めに取る。
 CALENDAR_WINDOW = (1040, 720)
 
+# 起動時の期限通知。画面右下（タスクバーの上）に出す小窓
+NOTIFY_HTML = WEB_DIR / "notify.html"
+NOTIFY_WINDOW = (340, 260)
+NOTIFY_MARGIN = 12
+
+# 二重起動を防ぐ名前付きミューテックスと、既存ウィンドウを探すためのタイトル
+INSTANCE_MUTEX = "Local\\todo_py_task_manager"
+MAIN_TITLE = "タスク管理"
+
 # 復元したサイズが画面に収まらないときの余白（タスクバー等の分）
 SCREEN_MARGIN = 60
 

@@ -3,12 +3,22 @@
   "configurations": [
     {
       "name": "devharness",
-      "runtimeExecutable": "C:\\Python3\\todo\\.venv\\Scripts\\python.exe",
+      "runtimeExecutable": "C:\\Python3\\todo_py\\.venv\\Scripts\\python.exe",
       "runtimeArgs": [
-        "C:\\Python3\\todo\\tools\\devserver.py",
+        "C:\\Python3\\todo_py\\tools\\devserver.py",
         "8800"
       ],
       "port": 8800
+    },
+    {
+      "name": "devharness-8802",
+      "runtimeExecutable": "C:\\Python3\\todo_py\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "C:\\Python3\\todo_py\\tools\\devserver.py",
+        "8802"
+      ],
+      "port": 8802,
+      "autoPort": false
     },
     {
       "name": "mock",

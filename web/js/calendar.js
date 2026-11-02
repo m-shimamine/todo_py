@@ -121,6 +121,58 @@ function scrollToToday() {
 
 const STATUS_LABEL = { active: '未完了', pending: '保留', completed: '完了' };
 
+/* ドラッグでスクロールする（縦横とも）。
+   少し動かすまではドラッグとみなさず、バーのクリックはそのまま通す。
+   動かした後に来る click は捨てる（バーの上で離しても詳細を開かない）。 */
+function setupPan(el, tip) {
+  const THRESHOLD = 4;
+  let pan = null;          // { id, x, y, left, top, moved }
+  let swallowClick = false;
+
+  el.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0) return;
+    // スクロールバーの上はブラウザに任せる
+    const r = el.getBoundingClientRect();
+    if (ev.clientX - r.left >= el.clientWidth || ev.clientY - r.top >= el.clientHeight) return;
+    ev.preventDefault();     // 文字選択を始めさせない
+    pan = { id: ev.pointerId, x: ev.clientX, y: ev.clientY,
+            left: el.scrollLeft, top: el.scrollTop, moved: false };
+  });
+
+  el.addEventListener('pointermove', ev => {
+    if (!pan || ev.pointerId !== pan.id) return;
+    const dx = ev.clientX - pan.x;
+    const dy = ev.clientY - pan.y;
+    if (!pan.moved) {
+      if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return;
+      pan.moved = true;
+      el.setPointerCapture(pan.id);
+      el.classList.add('panning');
+      tip.classList.remove('show');
+    }
+    el.scrollLeft = pan.left - dx;
+    el.scrollTop  = pan.top  - dy;
+  });
+
+  const end = ev => {
+    if (!pan || ev.pointerId !== pan.id) return;
+    swallowClick = pan.moved;
+    pan = null;
+    el.classList.remove('panning');
+    // click が来ないまま次の操作になったときに備えて、次のタスクで戻す
+    setTimeout(() => { swallowClick = false; }, 0);
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+
+  el.addEventListener('click', ev => {
+    if (!swallowClick) return;
+    swallowClick = false;
+    ev.stopPropagation();
+    ev.preventDefault();
+  }, true);
+}
+
 window.addEventListener('pywebviewready', async () => {
   $('back-icon').innerHTML = icon('x');
   $('today-btn').innerHTML = icon('calendarDot');
@@ -159,7 +211,9 @@ window.addEventListener('pywebviewready', async () => {
 
   // バーのツールチップ
   const tip = $('tooltip');
+  setupPan($('cal-scroll'), tip);
   $('cal-rows').addEventListener('mouseover', ev => {
+    if ($('cal-scroll').classList.contains('panning')) return;
     const bar = ev.target.closest('[data-id]');
     if (!bar) return;
     const t = TASKS.find(x => x.id === Number(bar.dataset.id));

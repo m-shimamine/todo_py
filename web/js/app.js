@@ -37,7 +37,7 @@ function emptyFilters() {
   return {
     q: '', genre_id: '', category_id: '', priority: '',
     due_from: '', due_to: '',
-    // 保留済・実行済の表示可否。既定はどちらも非表示（'' = OFF、'1' = ON）
+    // ステータスの絞り込み。どちらもOFFなら未完了だけ、ONにしたものだけに絞る（'' = OFF、'1' = ON）
     show_pending: '', show_completed: '',
   };
 }
@@ -53,6 +53,8 @@ const state = {
   isNew: false,
   manageGenreId: null,
   editing: null,          // {kind:'genre'|'category', id} 編集ビューの対象
+  sorting: false,         // 並び替えモード（行をドラッグで動かす）
+  bulk: false,            // 一括変更モード（行を選んで「完了」でまとめて変更）
 };
 
 let GENRES = [];
@@ -234,14 +236,28 @@ function describeFilters(f) {
     });
   }
   // 既定と違う状態のときだけ出す
-  if (f.show_pending   === '1') out.push({ key: 'show_pending',   label: '表示', value: '保留済' });
-  if (f.show_completed === '1') out.push({ key: 'show_completed', label: '表示', value: '実行済' });
+  if (f.show_pending   === '1') out.push({ key: 'show_pending',   label: 'ステータス', value: '保留済' });
+  if (f.show_completed === '1') out.push({ key: 'show_completed', label: 'ステータス', value: '実行済' });
   return out;
+}
+
+/** 並び替えできる一覧か。「実行済」は完了日時順なので並びを持たない。 */
+function canSort() {
+  const completedList = !state.genreId && !state.categoryId && state.listKey === 'completed';
+  return !completedList && TASKS.length > 1;
 }
 
 function renderList() {
   $('list-title').textContent = currentTitle();
   $('list-count').textContent = TASKS.length ? TASKS.length + '件' : '';
+
+  if (state.sorting && !canSort()) state.sorting = false;
+  if (state.bulk && !TASKS.length) state.bulk = false;
+  $('task-list-view').classList.toggle('sorting', state.sorting);
+  $('sort-btn').style.display = canSort() && !state.bulk ? '' : 'none';
+  renderBulk();
+  $('sort-btn').classList.toggle('on', state.sorting);
+  $('sort-btn').innerHTML = state.sorting ? '完了' : icon('arrowsV') + '並び替え';
 
   $('active-filters').innerHTML = describeFilters(state.filters).map(d =>
     `<span class="chip"><b>${esc(d.label)}</b> ${esc(d.value)}
@@ -252,39 +268,286 @@ function renderList() {
     return;
   }
 
-  $('task-items-card').innerHTML = TASKS.map(t => {
-    const done    = t.status === 'completed';
-    const pending = t.status === 'pending';
-    const overdue = t.date_start && TODAY && endOf(t) < TODAY && !done;
+  $('task-items-card').innerHTML = isGroupedList()
+    ? groupByCategory(TASKS).map(g => `<div class="task-group-head">
+        <span class="gdot" style="background:${esc(g.color)}"></span>
+        <span>${esc(g.category)}</span><span class="gname">${esc(g.genre)}</span>
+        <span class="gcount">${g.tasks.length}</span>
+      </div>` + g.tasks.map(taskRowHtml).join('')).join('')
+    : TASKS.map(taskRowHtml).join('');
+}
 
-    let dateText = '';
-    if (t.date_start) {
-      dateText = fmtDate(t.date_start) + (t.date_end ? ' 〜 ' + fmtDate(t.date_end) : '');
+/** 「すべて」はカテゴリごとに見出しを付けて出す。並び替え中は行の入れ替えが
+    見出しをまたぐと紛らわしいので、平らな一覧に戻す。 */
+function isGroupedList() {
+  return !state.genreId && !state.categoryId && state.listKey === 'all' && !state.sorting;
+}
+
+/** ジャンル → カテゴリの登録順にまとめる。カテゴリなしはそのジャンルの末尾。
+    グループ内はサーバの並び（ステータス → no）のまま。 */
+function groupByCategory(tasks) {
+  const order = [];
+  GENRES.forEach(g => {
+    (g.categories || []).forEach(c => order.push(g.id + ':' + c.id));
+    order.push(g.id + ':');
+  });
+
+  const groups = new Map();
+  tasks.forEach(t => {
+    const key = t.genre_id + ':' + (t.category_id || '');
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        genre: t.genre_name,
+        category: t.category_name || 'カテゴリなし',
+        color: t.genre_color,
+        tasks: [],
+      });
     }
+    groups.get(key).tasks.push(t);
+  });
 
-    return `<div class="task-row" data-id="${t.id}">
-      <div class="task-circle-container">
-        <div class="task-circle ${done ? 'checked' : ''}" data-check="${t.id}">
-          ${done ? icon('check') : ''}
-        </div>
+  const rank = k => { const i = order.indexOf(k); return i < 0 ? order.length : i; };
+  return [...groups.values()].sort((a, b) => rank(a.key) - rank(b.key));
+}
+
+function taskRowHtml(t) {
+  const done    = t.status === 'completed';
+  const pending = t.status === 'pending';
+  const overdue = t.date_start && TODAY && endOf(t) < TODAY && !done;
+
+  let dateText = '';
+  if (t.date_start) {
+    dateText = fmtDate(t.date_start) + (t.date_end ? ' 〜 ' + fmtDate(t.date_end) : '');
+  }
+
+  const moved = state.sorting && sortMoved.has(t.id);
+  // 一括変更中の丸は「選択」を表す（完了の印ではない）
+  const picked = state.bulk && bulkSelected.has(t.id);
+  const circleOn = state.bulk ? picked : done;
+  return `<div class="task-row${moved ? ' moved' : ''}${picked ? ' picked' : ''}" data-id="${t.id}" data-status="${t.status}">
+    <div class="task-circle-container">
+      <div class="task-circle ${circleOn ? 'checked' : ''}" data-check="${t.id}">
+        ${circleOn ? icon('check') : ''}
       </div>
-      <div class="task-body" data-open="${t.id}">
-        <div class="task-content-text ${done ? 'strikethrough' : ''}">${esc(t.content)}</div>
-        <div class="task-meta">
-          <span class="task-project-badge" style="background:${esc(t.genre_color)}">${esc(t.genre_name)}</span>
-          ${t.category_name ? `<span class="task-category-label">${esc(t.category_name)}</span>` : ''}
-          ${dateText ? `<span class="task-date-label ${overdue ? 'overdue' : ''}">${icon('calendar')}${dateText}</span>` : ''}
-          ${pending ? '<span class="task-status-label">保留</span>' : ''}
-        </div>
+    </div>
+    <div class="task-body" data-open="${t.id}">
+      <div class="task-content-text ${done ? 'strikethrough' : ''}">${esc(t.content)}</div>
+      <div class="task-meta">
+        <span class="task-project-badge" style="background:${esc(t.genre_color)}">${esc(t.genre_name)}</span>
+        ${t.category_name ? `<span class="task-category-label">${esc(t.category_name)}</span>` : ''}
+        ${dateText ? `<span class="task-date-label ${overdue ? 'overdue' : ''}">${icon('calendar')}${dateText}</span>` : ''}
+        ${pending ? '<span class="task-status-label">保留</span>' : ''}
       </div>
-      <div class="task-trailing">
-        <span class="task-toggle task-hold ${pending ? 'active' : ''}" data-hold="${t.id}"
-              title="${pending ? '保留を解除' : '保留にする'}">${icon('clock')}</span>
-        <span class="task-toggle task-flag ${t.priority ? 'active' : ''}" data-flag="${t.id}"
-              title="${t.priority ? 'フラグを外す' : 'フラグを付ける'}">${icon('flag')}</span>
-      </div>
-    </div>`;
-  }).join('');
+    </div>
+    <div class="task-trailing">
+      <span class="task-toggle task-hold ${pending ? 'active' : ''}" data-hold="${t.id}"
+            title="${pending ? '保留を解除' : '保留にする'}">${icon('clock')}</span>
+      <span class="task-toggle task-flag ${t.priority ? 'active' : ''}" data-flag="${t.id}"
+            title="${t.priority ? 'フラグを外す' : 'フラグを付ける'}">${icon('flag')}</span>
+      <span class="task-grip" data-grip="${t.id}" title="ドラッグで移動">${icon('grip')}</span>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   タスクの並び替え（並び替えモード中だけ）
+   一覧は ステータス → no の順なので、動かせるのは同じステータスの
+   行の間だけ。HTML5 の drag&drop は WebView2 で挙動が揺れるため
+   pointer イベントで自前に動かす。
+   ドラッグ中は画面上で動かすだけで、「完了」を押した時にまとめて登録する。
+   ============================================================ */
+
+let drag = null;          // { row, status, before: [ids], pointerId }
+let sortStartIds = [];    // モードに入った時点の並び（変更があったかの判定用）
+const sortMoved = new Set();   // このモード中に動かしたタスクのID
+
+function groupIds(status) {
+  return [...$('task-items-card').querySelectorAll(`.task-row[data-status="${status}"]`)]
+    .map(r => Number(r.dataset.id));
+}
+
+function startDrag(ev, grip) {
+  const row = grip.closest('.task-row');
+  ev.preventDefault();
+  grip.setPointerCapture(ev.pointerId);
+  drag = { row, status: row.dataset.status, before: groupIds(row.dataset.status), pointerId: ev.pointerId };
+  row.classList.add('dragging');
+  document.body.classList.add('is-dragging');
+}
+
+function moveDrag(ev) {
+  if (!drag || ev.pointerId !== drag.pointerId) return;
+  const y = ev.clientY;
+
+  // 端に寄せたら一覧をスクロールする
+  const box = $('task-items-card').parentElement;
+  const r = box.getBoundingClientRect();
+  if (y < r.top + 40)         box.scrollTop -= 12;
+  else if (y > r.bottom - 40) box.scrollTop += 12;
+
+  // 同じステータスの行の中で、ポインタが中線を越えた行と入れ替える
+  const rows = [...$('task-items-card').querySelectorAll(`.task-row[data-status="${drag.status}"]`)];
+  for (const other of rows) {
+    if (other === drag.row) continue;
+    const b = other.getBoundingClientRect();
+    const mid = b.top + b.height / 2;
+    const isBelow = drag.row.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING;
+    if (isBelow && y > mid) {
+      other.after(drag.row);
+    } else if (!isBelow && y < mid) {
+      other.before(drag.row);
+      break;
+    }
+  }
+}
+
+function endDrag(ev) {
+  if (!drag || ev.pointerId !== drag.pointerId) return;
+  const { row, status, before } = drag;
+  drag = null;
+  row.classList.remove('dragging');
+  document.body.classList.remove('is-dragging');
+
+  // 描き直しても崩れないよう、TASKS も画面の並びに揃えておく
+  const order = groupIds('active').concat(groupIds('pending'), groupIds('completed'));
+  TASKS.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+
+  // 動かした行に色を付け、未登録の変更があると分かるようにする。
+  // 元の並びに戻したら印も消す
+  if (groupIds(status).join() !== before.join()) sortMoved.add(Number(row.dataset.id));
+  if (order.join() === sortStartIds.join()) sortMoved.clear();
+  $('task-items-card').querySelectorAll('.task-row').forEach(r =>
+    r.classList.toggle('moved', sortMoved.has(Number(r.dataset.id))));
+}
+
+/* ============================================================
+   一括変更（一括変更モード中だけ）
+   並び替えと同じく、モードに入って行を選び、「完了」でまとめて登録する。
+   「変更しない」のままの項目は送らない。何も選んでいない・何も
+   変えていなければ、登録せずにモードを抜ける。
+   ============================================================ */
+
+const bulkSelected = new Set();   // 選んだタスクのID
+
+function startBulk() {
+  bulkSelected.clear();
+  ['b-due', 'b-flag', 'b-status', 'b-start', 'b-end'].forEach(id => { $(id).value = ''; });
+  fillGenreSelect($('b-genre'), '', '変更しない');
+  state.bulk = true;
+  renderList();
+}
+
+function cancelBulk() {
+  state.bulk = false;
+  bulkSelected.clear();
+  renderList();
+}
+
+/** 選んだタスクのジャンル。ジャンルを変えない場合のカテゴリ候補に使う。 */
+function bulkGenreId() {
+  if ($('b-genre').value) return Number($('b-genre').value);
+  const gids = new Set(TASKS.filter(t => bulkSelected.has(t.id)).map(t => t.genre_id));
+  return gids.size === 1 ? [...gids][0] : null;
+}
+
+/** カテゴリの候補を出し直す。ジャンルが1つに決まらないときは「なし」しか選べない。 */
+function fillBulkCategories() {
+  const keep = $('b-cat').value;
+  const gid = bulkGenreId();
+  const g = GENRES.find(x => x.id === gid);
+  const cats = g ? (g.categories || []) : [];
+  $('b-cat').innerHTML =
+    '<option value="">変更しない</option><option value="none">なし</option>' +
+    cats.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  $('b-cat').value = [...$('b-cat').options].some(o => o.value === keep) ? keep : '';
+  $('b-cat').title = gid ? '' : '複数のジャンルが混ざっているため「なし」だけ選べます';
+}
+
+function renderBulk() {
+  // 一覧に無くなったタスクは選択から外す
+  const shown = new Set(TASKS.map(t => t.id));
+  [...bulkSelected].forEach(id => { if (!shown.has(id)) bulkSelected.delete(id); });
+
+  $('task-list-view').classList.toggle('bulk', state.bulk);
+  document.body.classList.toggle('is-bulk', state.bulk);
+  $('bulk-btn').style.display = TASKS.length && !state.sorting ? '' : 'none';
+  $('bulk-btn').classList.toggle('on', state.bulk);
+  $('bulk-btn').innerHTML = state.bulk ? '完了' : icon('checkCircle') + '一括変更';
+  if (!state.bulk) return;
+
+  $('bulk-count').textContent = bulkSelected.size + '件選択';
+  $('bulk-all').textContent = bulkSelected.size === TASKS.length ? '選択を解除' : 'すべて選択';
+  $('b-dates').style.display = $('b-due').value === 'set' ? '' : 'none';
+  fillBulkCategories();
+}
+
+/** 画面の入力から送る変更を作る。不正なら Error を投げる。 */
+function readBulk() {
+  const body = {};
+  const due = $('b-due').value;
+  if (due === 'set') {
+    if (!$('b-start').value) throw new Error('開始日を入力してください');
+    body.date_start = $('b-start').value;
+    body.date_end = $('b-end').value;
+  } else if (due === 'clear') {
+    body.date_start = '';
+    body.date_end = '';
+  }
+  if ($('b-flag').value !== '')   body.priority = $('b-flag').value === '1';
+  if ($('b-genre').value)         body.genre_id = Number($('b-genre').value);
+  if ($('b-cat').value === 'none') body.category_id = null;
+  else if ($('b-cat').value)      body.category_id = Number($('b-cat').value);
+  if ($('b-status').value)        body.status = $('b-status').value;
+  return body;
+}
+
+/** 「完了」：選んでいて変更もあれば登録してからモードを抜ける。 */
+async function finishBulk() {
+  let body;
+  try {
+    body = readBulk();
+  } catch (e) {
+    return toast(e.message);
+  }
+  const ids = TASKS.filter(t => bulkSelected.has(t.id)).map(t => t.id);
+  if (!ids.length || !Object.keys(body).length) return cancelBulk();
+
+  try {
+    const r = await api.bulkUpdateTasks(ids, body);
+    toast(r.updated + '件を変更しました');
+  } catch (e) {
+    return toast(e.message);      // モードは保つ。直して押し直せる
+  }
+  state.bulk = false;
+  bulkSelected.clear();
+  await reload();
+}
+
+function startSorting() {
+  sortStartIds = TASKS.map(t => t.id);
+  sortMoved.clear();
+  state.sorting = true;
+  renderList();
+}
+
+/** 「完了」：動かしていれば登録してからモードを抜ける。 */
+async function finishSorting() {
+  const changed = TASKS.map(t => t.id).join() !== sortStartIds.join();
+  state.sorting = false;
+  if (!changed) return renderList();
+
+  try {
+    // ステータスごとに送る。まとめて送るとグループをまたいで no を配り直してしまう
+    for (const status of ['active', 'pending', 'completed']) {
+      const ids = TASKS.filter(t => t.status === status).map(t => t.id);
+      if (ids.length > 1) await api.reorderTasks(ids);
+    }
+    toast('並び順を登録しました');
+  } catch (e) {
+    toast(e.message);
+  }
+  await reload();
 }
 
 /* ============================================================
@@ -294,13 +557,14 @@ function renderList() {
 function showDashboard() {
   state.view = 'dashboard';
   state.genreId = state.categoryId = null;
+  state.bulk = false;
   // 広い時はサイドバーが出たままなので、一覧の中身も保っておく
   if (WIDE.matches) state.view = 'list';
   reload();
 }
 
 function showList(opts) {
-  Object.assign(state, { view: 'list' }, opts);
+  Object.assign(state, { view: 'list', sorting: false, bulk: false }, opts);
   reload();
 }
 
@@ -330,7 +594,7 @@ function openDetail(task) {
     genre_id: state.genreId || (GENRES[0] && GENRES[0].id),
     category_id: state.categoryId || null,
     content: '', result: '',
-    date_start: TODAY, date_end: '',
+    date_start: '', date_end: '',
     priority: false, status: 'active',
   };
 
@@ -443,9 +707,10 @@ function readFilterInputs() {
   state.filters.show_completed = $('f-show-completed').checked ? '1' : '';
 }
 
-/** 表示可否（show_*）は範囲を広げる操作なので、母集合の切替対象に含めない。 */
+/** 絞り込みが1つでも入っていれば「すべて」を母集合にする。 */
 function hasNarrowingFilters(f) {
-  return ['q', 'genre_id', 'category_id', 'priority', 'due_from', 'due_to']
+  return ['q', 'genre_id', 'category_id', 'priority', 'due_from', 'due_to',
+          'show_pending', 'show_completed']
     .some(k => f[k] !== '');
 }
 
@@ -683,7 +948,42 @@ function bindEvents() {
   });
 
   // --- タスク一覧 ---
+  $('sort-btn').addEventListener('click', () => {
+    if (state.sorting) finishSorting();
+    else startSorting();
+  });
+
+  $('task-items-card').addEventListener('pointerdown', ev => {
+    const grip = state.sorting && ev.target.closest('[data-grip]');
+    if (grip) startDrag(ev, grip);
+  });
+  $('task-items-card').addEventListener('pointermove', moveDrag);
+  $('task-items-card').addEventListener('pointerup', endDrag);
+  $('task-items-card').addEventListener('pointercancel', endDrag);
+
+  $('bulk-btn').addEventListener('click', () => {
+    if (state.bulk) finishBulk();
+    else startBulk();
+  });
+  $('bulk-cancel').addEventListener('click', cancelBulk);
+  $('bulk-all').addEventListener('click', () => {
+    if (bulkSelected.size === TASKS.length) bulkSelected.clear();
+    else TASKS.forEach(t => bulkSelected.add(t.id));
+    renderList();
+  });
+  $('b-due').addEventListener('change', renderBulk);
+  $('b-genre').addEventListener('change', () => { $('b-cat').value = ''; renderBulk(); });
+
   $('task-items-card').addEventListener('click', async ev => {
+    if (state.sorting) return;      // 並び替え中は完了・保留・詳細を開かない
+    // 一括変更中は行のどこを押しても選択の切り替えだけ
+    if (state.bulk) {
+      const row = ev.target.closest('.task-row');
+      if (!row) return;
+      const id = Number(row.dataset.id);
+      if (bulkSelected.has(id)) bulkSelected.delete(id); else bulkSelected.add(id);
+      return renderList();
+    }
     try {
       const chk = ev.target.closest('[data-check]');
       if (chk) {
@@ -767,9 +1067,9 @@ function bindEvents() {
     fillCategorySelect($('f-category'), $('f-genre').value, null, 'すべて');
   });
 
-  $('f-apply').addEventListener('click', () => {
+  // 条件は変えた瞬間に反映する。ジャンル側の change が先に走り、カテゴリを空にしてから読む
+  $('filter-panel').addEventListener('change', () => {
     readFilterInputs();
-    openFilterPanel(false);
     runFilters();
   });
 
@@ -798,6 +1098,9 @@ function bindEvents() {
 
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape') return;
+    if ($('menu-pop').classList.contains('open')) return openMenu(false);
+    if ($('settings-modal').classList.contains('open')) return closeSettings();
+    if (state.bulk) return cancelBulk();
     // 編集ビューを開いている間は、一覧へ戻すだけにする
     if ($('manage-modal').classList.contains('open')) {
       if ($('manage-content').dataset.mview === 'edit') {
@@ -813,6 +1116,7 @@ function bindEvents() {
 
   // --- 管理モーダル ---
   $('manage-btn').addEventListener('click', () => {
+    openMenu(false);
     state.manageGenreId = null;
     state.editing = null;
     hideConfirm();
@@ -924,12 +1228,151 @@ function bindEvents() {
   });
 }
 
+/* ============================================================
+   メニュー（歯車）と設定
+   設定値は Python 側（app_meta）が持つ。画面は開くたびに読み直し、
+   「保存」でまとめて送る。不正な値があれば何も保存されない。
+   ============================================================ */
+
+function openMenu(on) {
+  $('menu-pop').classList.toggle('open', on);
+}
+
+// 入力欄 ↔ 設定項目の対応。kind: 'check' | 'num' | 'text'
+const SETTING_FIELDS = [
+  ['s-backup-enabled',  'backup_enabled',        'check'],
+  ['s-backup-dir',      'backup_dir',            'text'],
+  ['s-backup-keep',     'backup_keep',           'num'],
+  ['s-notify-startup',  'notify_on_startup',     'check'],
+  ['s-notify-interval', 'notify_interval_min',   'num'],
+  ['s-notify-today',    'notify_include_today',  'check'],
+  ['s-notify-close',    'notify_auto_close_sec', 'num'],
+  ['s-import-dir',      'import_dir',            'text'],
+];
+
+function fillSettings(data) {
+  SETTING_FIELDS.forEach(([id, key, kind]) => {
+    const el = $(id);
+    if (kind === 'check') el.checked = !!data.values[key];
+    else el.value = data.values[key];
+  });
+  // 空欄のときに使われる既定フォルダを見せておく
+  $('s-backup-dir').placeholder = '既定: ' + data.defaults.backup_dir;
+  $('s-import-dir').placeholder = '既定: ' + data.defaults.import_dir;
+}
+
+function readSettings() {
+  const body = {};
+  SETTING_FIELDS.forEach(([id, key, kind]) => {
+    const el = $(id);
+    body[key] = kind === 'check' ? el.checked : kind === 'num' ? el.value : el.value.trim();
+  });
+  return body;
+}
+
+function settingsError(msg) {
+  $('settings-error').textContent = msg || '';
+}
+
+async function openSettings() {
+  openMenu(false);
+  settingsError('');
+  try {
+    fillSettings(await api.getSettings());
+  } catch (e) {
+    return toast(e.message);
+  }
+  $('settings-modal').classList.add('open');
+}
+
+function closeSettings() {
+  $('settings-modal').classList.remove('open');
+}
+
+/** 保存してから実行したい操作（今すぐバックアップ等）の前にも呼ぶ。 */
+async function saveSettings() {
+  settingsError('');
+  try {
+    fillSettings(await api.saveSettings(readSettings()));
+    return true;
+  } catch (e) {
+    settingsError(e.message);
+    return false;
+  }
+}
+
+function bindSettings() {
+  $('menu-btn').addEventListener('click', ev => {
+    ev.stopPropagation();
+    openMenu(!$('menu-pop').classList.contains('open'));
+  });
+  document.addEventListener('click', ev => {
+    if (!ev.target.closest('.menu-wrap')) openMenu(false);
+  });
+
+  $('settings-btn').addEventListener('click', openSettings);
+  $('settings-cancel').addEventListener('click', closeSettings);
+  $('settings-modal').addEventListener('click', ev => {
+    if (ev.target.id === 'settings-modal') closeSettings();
+  });
+  $('settings-save').addEventListener('click', async () => {
+    if (await saveSettings()) {
+      closeSettings();
+      toast('設定を保存しました');
+    }
+  });
+
+  // 参照：フォルダ選択ダイアログ
+  document.querySelectorAll('[data-browse]').forEach(btn =>
+    btn.addEventListener('click', async () => {
+      const input = $(btn.dataset.browse);
+      try {
+        const r = await api.chooseFolder(input.value || input.placeholder.replace(/^既定: /, ''));
+        if (r.path) input.value = r.path;
+      } catch (e) {
+        settingsError(e.message);
+      }
+    }));
+
+  // 下の3つは入力中の値で動くよう、先に保存する
+  $('s-backup-now').addEventListener('click', async () => {
+    if (!await saveSettings()) return;
+    try {
+      const r = await api.backupNow();
+      toast('バックアップしました: ' + r.path);
+    } catch (e) {
+      settingsError(e.message);
+    }
+  });
+  $('s-notify-test').addEventListener('click', async () => {
+    if (!await saveSettings()) return;
+    try {
+      const r = await api.testNotification();
+      if (!r.shown) toast('期限が来ているタスクはありません');
+    } catch (e) {
+      settingsError(e.message);
+    }
+  });
+  $('s-import-now').addEventListener('click', async () => {
+    if (!await saveSettings()) return;
+    try {
+      const r = await api.importCsv();
+      toast(r.imported ? r.imported + '件取り込みました' : '取り込むCSVはありませんでした');
+      if (r.imported) { await refreshMasters(); await reload(); }
+    } catch (e) {
+      settingsError(e.message);
+    }
+  });
+}
+
 function renderIcons() {
   $('search-icon').innerHTML   = icon('search');
   $('search-clear').innerHTML  = icon('x');
-  $('filter-btn').innerHTML    = icon('sliders');
+  $('filter-btn').innerHTML    = icon('search');
   $('calendar-link').innerHTML = icon('calendarDots');
-  $('manage-btn').innerHTML    = icon('gear');
+  $('menu-btn').innerHTML      = icon('gear');
+  $('manage-icon').innerHTML   = icon('folder');
+  $('settings-icon').innerHTML = icon('sliders');
   $('back-icon').innerHTML     = icon('caretLeft');
   $('fab-icon').innerHTML      = icon('plus');
   $('i-date').innerHTML        = icon('calendar');
@@ -955,6 +1398,7 @@ function renderIcons() {
 window.addEventListener('pywebviewready', async () => {
   renderIcons();
   bindEvents();
+  bindSettings();
   try {
     await refreshMasters();
   } catch (e) {

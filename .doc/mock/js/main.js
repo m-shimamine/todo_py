@@ -208,7 +208,7 @@ function openDetail(task) {
 
   const t = task || {
     genre_id: state.genreId || GENRES[0].id, category_id: state.categoryId || null,
-    content: '', result: '', date_start: day(0), date_end: '',
+    content: '', result: '', date_start: '', date_end: '',
     priority: 0, status: 'active'
   };
 
@@ -324,8 +324,6 @@ function readFilterInputs() {
 
 /**
  * 絞り込みが効いている間は「すべて」を母集合にした一覧へ移る。
- * ただし表示可否（保留済・実行済）は範囲を広げる操作なので、
- * これだけを変えたときはいま見ているリストに留まる。
  */
 function runFilters() {
   if (hasNarrowingFilters(state.filters)) {
@@ -383,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // アイコンの流し込み
   $('search-icon').innerHTML  = icon('search');
   $('search-clear').innerHTML = icon('x');
-  $('filter-btn').innerHTML   = icon('sliders');
+  $('filter-btn').innerHTML   = icon('search');
   $('calendar-link').innerHTML = icon('calendarDots');
   $('manage-btn').innerHTML   = icon('gear');
   $('back-icon').innerHTML    = icon('caretLeft');
@@ -512,9 +510,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fillCategorySelect($('f-category'), $('f-genre').value, null, 'すべて');
   });
 
-  $('f-apply').addEventListener('click', () => {
+  // 条件は変えた瞬間に反映する。ジャンル側の change が先に走り、カテゴリを空にしてから読む
+  $('filter-panel').addEventListener('change', () => {
     readFilterInputs();
-    openFilterPanel(false);
     runFilters();
   });
 

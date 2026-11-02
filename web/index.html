@@ -19,7 +19,13 @@
     </div>
     <button class="bar-btn" id="filter-btn" title="絞り込み"></button>
     <button class="bar-btn" id="calendar-link" title="カレンダー（別ウィンドウ）"></button>
-    <button class="bar-btn" id="manage-btn" title="ジャンル・カテゴリ管理"></button>
+    <div class="menu-wrap">
+      <button class="bar-btn" id="menu-btn" title="メニュー"></button>
+      <div class="menu-pop" id="menu-pop">
+        <button class="menu-item" id="manage-btn"><span id="manage-icon"></span>ジャンル・カテゴリ管理</button>
+        <button class="menu-item" id="settings-btn"><span id="settings-icon"></span>設定</button>
+      </div>
+    </div>
   </header>
 
   <!-- ===== 絞り込みパネル ===== -->
@@ -35,13 +41,13 @@
         </select>
       </label>
       <div class="filter-field filter-show">
-        <span>表示</span>
+        <span>ステータス</span>
         <div class="check-row">
           <label class="check-item">
-            <input type="checkbox" id="f-show-pending"> 保留済を表示
+            <input type="checkbox" id="f-show-pending"> 保留済のみ
           </label>
           <label class="check-item">
-            <input type="checkbox" id="f-show-completed"> 実行済を表示
+            <input type="checkbox" id="f-show-completed"> 実行済のみ
           </label>
         </div>
       </div>
@@ -56,7 +62,6 @@
     </div>
     <div class="filter-actions">
       <button id="f-clear">条件をクリア</button>
-      <button id="f-apply" class="primary">絞り込む</button>
     </div>
   </div>
 
@@ -75,10 +80,53 @@
       <button class="back-btn" id="back-btn"><span id="back-icon"></span>リスト</button>
       <h2 class="list-title" id="list-title">今日</h2>
       <span class="list-count" id="list-count"></span>
+      <button class="sort-btn" id="bulk-btn" title="選んだタスクをまとめて変更"></button>
+      <button class="sort-btn" id="sort-btn" title="ドラッグで並び替え"></button>
     </div>
     <div class="active-filters" id="active-filters"></div>
     <div class="task-items">
       <div class="task-items-card" id="task-items-card"></div>
+    </div>
+
+    <!-- 一括変更モードの間だけ出す。「変更しない」の項目は各タスクのまま -->
+    <div class="bulk-panel" id="bulk-panel">
+      <div class="bulk-head">
+        <span class="bulk-count" id="bulk-count"></span>
+        <button class="bulk-link" id="bulk-all"></button>
+        <span class="bulk-spacer"></span>
+        <button class="bulk-link" id="bulk-cancel">やめる</button>
+      </div>
+      <div class="bulk-grid">
+        <label class="bulk-field bulk-due"><span>期限</span>
+          <select id="b-due">
+            <option value="">変更しない</option>
+            <option value="set">日付を指定</option>
+            <option value="clear">期限なしにする</option>
+          </select>
+          <span class="bulk-dates" id="b-dates">
+            <input type="date" id="b-start" title="開始日">
+            <span>〜</span>
+            <input type="date" id="b-end" title="終了日（空なら1日だけ）">
+          </span>
+        </label>
+        <label class="bulk-field"><span>フラグ</span>
+          <select id="b-flag">
+            <option value="">変更しない</option>
+            <option value="1">あり</option>
+            <option value="0">なし</option>
+          </select>
+        </label>
+        <label class="bulk-field"><span>ジャンル</span><select id="b-genre"></select></label>
+        <label class="bulk-field"><span>カテゴリ</span><select id="b-cat"></select></label>
+        <label class="bulk-field"><span>ステータス</span>
+          <select id="b-status">
+            <option value="">変更しない</option>
+            <option value="active">未完了</option>
+            <option value="pending">保留</option>
+            <option value="completed">完了</option>
+          </select>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -217,6 +265,89 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ===== 設定 ===== -->
+<div class="modal" id="settings-modal">
+  <div class="modal-content settings-content">
+    <div class="modal-header">
+      <button class="modal-back" id="settings-cancel">キャンセル</button>
+      <h2>設定</h2>
+      <button class="modal-close" id="settings-save">保存</button>
+    </div>
+
+    <div class="settings-body">
+      <section class="settings-group">
+        <h3>バックアップ</h3>
+        <div class="settings-card">
+          <label class="settings-row">
+            <span class="settings-label">起動時にバックアップする</span>
+            <input type="checkbox" class="switch" id="s-backup-enabled">
+          </label>
+          <div class="settings-row stack">
+            <span class="settings-label">保存先フォルダ</span>
+            <div class="path-field">
+              <input type="text" id="s-backup-dir" autocomplete="off">
+              <button class="path-btn" data-browse="s-backup-dir">参照</button>
+            </div>
+          </div>
+          <label class="settings-row">
+            <span class="settings-label">残す世代数</span>
+            <span class="num-field"><input type="number" id="s-backup-keep" min="1" max="100">世代</span>
+          </label>
+          <div class="settings-row">
+            <span class="settings-hint">1日1ファイル（todo_YYYYMMDD.db）。同じ日は上書きします。</span>
+            <button class="settings-action" id="s-backup-now">今すぐバックアップ</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3>期限の通知</h3>
+        <div class="settings-card">
+          <label class="settings-row">
+            <span class="settings-label">起動時に通知する</span>
+            <input type="checkbox" class="switch" id="s-notify-startup">
+          </label>
+          <label class="settings-row">
+            <span class="settings-label">定期的に通知する間隔</span>
+            <span class="num-field"><input type="number" id="s-notify-interval" min="0" max="1440">分</span>
+          </label>
+          <label class="settings-row">
+            <span class="settings-label">今日が期限のタスクも含める</span>
+            <input type="checkbox" class="switch" id="s-notify-today">
+          </label>
+          <label class="settings-row">
+            <span class="settings-label">自動で閉じるまで</span>
+            <span class="num-field"><input type="number" id="s-notify-close" min="0" max="600">秒</span>
+          </label>
+          <div class="settings-row">
+            <span class="settings-hint">間隔・秒数は 0 にすると「しない」。</span>
+            <button class="settings-action" id="s-notify-test">いま通知する</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3>CSV取込</h3>
+        <div class="settings-card">
+          <div class="settings-row stack">
+            <span class="settings-label">取込フォルダ</span>
+            <div class="path-field">
+              <input type="text" id="s-import-dir" autocomplete="off">
+              <button class="path-btn" data-browse="s-import-dir">参照</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <span class="settings-hint">起動時にこのフォルダの .csv を取り込みます。</span>
+            <button class="settings-action" id="s-import-now">いま取り込む</button>
+          </div>
+        </div>
+      </section>
+
+      <p class="settings-error" id="settings-error"></p>
+    </div>
   </div>
 </div>
 

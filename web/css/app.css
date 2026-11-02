@@ -134,6 +134,35 @@ button { cursor: pointer; background: none; border: none; }
 }
 
 .bar-btn:hover { background: rgba(0, 122, 255, .09); }
+
+/* ---- 歯車メニュー ---- */
+.menu-wrap { position: relative; flex-shrink: 0; }
+.menu-pop {
+  display: none;
+  position: absolute;
+  top: 40px;
+  right: 0;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+  z-index: 120;
+}
+.menu-pop.open { display: block; }
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+.menu-item:hover { background: var(--bg-grouped); }
+.menu-item span { display: flex; color: var(--ios-blue); }
 .bar-btn.on { background: var(--ios-blue); color: #fff; }
 
 .bar-btn .dotmark {
@@ -238,8 +267,6 @@ button { cursor: pointer; background: none; border: none; }
   background: var(--bg-search);
   color: var(--ios-blue);
 }
-
-.filter-actions button.primary { background: var(--ios-blue); color: #fff; }
 
 /* 適用中の条件チップ */
 
@@ -456,7 +483,111 @@ button { cursor: pointer; background: none; border: none; }
 
 .list-count { font-size: 15px; color: var(--text-tertiary); flex-shrink: 0; }
 
+/* 並び替えモードの切り替え。ON の間は「完了」に変わる */
+.sort-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ios-blue);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+.sort-btn .ic { width: 16px; height: 16px; }
+.sort-btn:hover { background: rgba(0, 122, 255, .08); }
+.sort-btn.on { background: var(--ios-blue); color: #fff; font-weight: 600; }
+
+/* 並び替えモード：つまみだけを出し、他の操作は隠す */
+.task-grip {
+  display: none;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px -4px 0;
+  place-items: center;
+  color: var(--text-tertiary);
+  cursor: grab;
+  touch-action: none;
+}
+.task-grip .ic { width: 20px; height: 20px; fill: currentColor; }
+.sorting .task-grip { display: grid; }
+.sorting .task-toggle { display: none; }
+.sorting .task-circle,
+.sorting .task-body { cursor: default; pointer-events: none; }
+.sorting .task-row { user-select: none; }
+
+.task-row.dragging {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-card);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+  opacity: .95;
+}
+.is-dragging, .is-dragging * { cursor: grabbing !important; }
+
+/* 並び替えモード中に動かした行（「完了」で登録するまで残す） */
+.sorting .task-row.moved {
+  background: rgba(0, 122, 255, .16);
+  box-shadow: inset 4px 0 0 var(--ios-blue);
+}
+.sorting .task-row.moved .task-grip { color: var(--ios-blue); }
+
 .task-items { flex: 1; overflow-y: auto; padding: 0 20px 100px; }
+
+/* ---- 一括変更モード：行を押すと選択。保留・フラグのトグルは隠す ---- */
+.bulk .task-toggle { display: none; }
+.bulk .task-row { cursor: pointer; user-select: none; }
+.bulk .task-body { pointer-events: none; }
+.bulk .task-row.picked {
+  background: rgba(0, 122, 255, .12);
+  box-shadow: inset 4px 0 0 var(--ios-blue);
+}
+.bulk .task-items { padding-bottom: 16px; }
+.is-bulk .fab { display: none; }
+
+.bulk-panel {
+  display: none;
+  flex-shrink: 0;
+  margin: 0 20px 16px;
+  padding: 10px 14px 12px;
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  box-shadow: 0 -2px 14px rgba(0, 0, 0, .10);
+}
+.bulk .bulk-panel { display: block; }
+
+.bulk-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.bulk-count { font-size: 14px; font-weight: 700; }
+.bulk-spacer { flex: 1; }
+.bulk-link { font-size: 13px; color: var(--ios-blue); }
+.bulk-link:hover { text-decoration: underline; }
+
+.bulk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 10px;
+}
+.bulk-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bulk-field > span:first-child { font-size: 11px; font-weight: 700; color: var(--text-tertiary); }
+.bulk-field select,
+.bulk-field input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  background: var(--bg-card);
+  font-size: 13px;
+  outline: none;
+}
+.bulk-field select:focus,
+.bulk-field input:focus { border-color: var(--ios-blue); }
+/* 期限は日付2つを並べるので1行ぶん取る */
+.bulk-due { grid-column: 1 / -1; }
+.bulk-due select { max-width: 200px; }
+.bulk-dates { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-tertiary); }
+.bulk-dates input[type="date"] { flex: 1; max-width: 180px; }
 
 .task-items-card {
   background: var(--bg-card);
@@ -464,6 +595,22 @@ button { cursor: pointer; background: none; border: none; }
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
 }
+
+/* 「すべて」のカテゴリ見出し */
+.task-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 6px;
+  background: var(--bg-grouped);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.task-group-head:first-child { padding-top: 10px; }
+.task-group-head .gdot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.task-group-head .gname { color: var(--text-tertiary); font-weight: 500; }
+.task-group-head .gcount { margin-left: auto; color: var(--text-tertiary); font-weight: 500; }
 
 .task-row {
   display: flex;
@@ -1057,6 +1204,155 @@ button { cursor: pointer; background: none; border: none; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ============================================================
+   設定
+   ============================================================ */
+
+.settings-content { max-width: 560px; }
+.settings-body { padding: 6px 16px 18px; overflow-y: auto; }
+
+.settings-group h3 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  margin: 14px 4px 6px;
+}
+
+.settings-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  min-height: 46px;
+}
+.settings-row + .settings-row { border-top: 1px solid var(--separator); }
+.settings-row.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+
+.settings-label { font-size: 14px; }
+.settings-hint { font-size: 12px; color: var(--text-tertiary); flex: 1; }
+
+.settings-action {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(0, 122, 255, .09);
+  color: var(--ios-blue);
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-action:hover { background: rgba(0, 122, 255, .16); }
+
+.path-field { display: flex; gap: 6px; }
+.path-field input,
+.num-field input {
+  padding: 7px 10px;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  background: var(--bg-card);
+  font-size: 14px;
+  outline: none;
+}
+.path-field input { flex: 1; min-width: 0; }
+.path-field input:focus,
+.num-field input:focus { border-color: var(--ios-blue); }
+.path-btn {
+  flex-shrink: 0;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--bg-grouped);
+  font-size: 13px;
+}
+.path-btn:hover { background: var(--bg-search); }
+
+.num-field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-tertiary); }
+.num-field input { width: 76px; text-align: right; color: var(--text-primary); }
+
+/* iOS 風のスイッチ */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: #E9E9EA;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+  transition: transform .15s;
+}
+.switch:checked { background: var(--ios-green); }
+.switch:checked::after { transform: translateX(18px); }
+
+.settings-error { color: var(--ios-red); font-size: 13px; margin: 12px 4px 0; min-height: 1em; }
+
+/* ============================================================
+   起動時の期限通知（画面右下の枠なし小窓）
+   ============================================================ */
+
+body.notify-page { background: var(--bg-card); }
+
+.notify {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  border: 1px solid var(--separator);
+  border-top: 3px solid var(--ios-red);
+}
+
+.notify-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 8px 12px;
+  border-bottom: 1px solid var(--separator);
+}
+.notify-icon { color: var(--ios-red); display: flex; }
+.notify-title { flex: 1; font-size: 13px; font-weight: 600; }
+.notify-close {
+  display: flex;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+}
+.notify-close:hover { background: var(--bg-search); color: var(--text-primary); }
+.notify-close .ic { width: 16px; height: 16px; }
+
+.notify-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.notify-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  text-align: left;
+  font-size: 13px;
+}
+.notify-row:hover { background: var(--bg-grouped); }
+.notify-row .cdot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.notify-row .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notify-row .d { font-size: 12px; color: var(--ios-orange); flex-shrink: 0; }
+.notify-row .d.overdue { color: var(--ios-red); }
+.notify-empty { padding: 20px; text-align: center; color: var(--text-tertiary); font-size: 13px; }
+
+/* ============================================================
    カレンダー（ガントチャート）
    ============================================================ */
 
@@ -1139,7 +1435,10 @@ button { cursor: pointer; background: none; border: none; }
 .cal-label .t { overflow: hidden; text-overflow: ellipsis; }
 .cal-label.done .t { color: var(--text-tertiary); text-decoration: line-through; }
 
-.cal-scroll { overflow: auto; position: relative; min-width: 0; }
+.cal-scroll { overflow: auto; position: relative; min-width: 0; cursor: grab; }
+/* ドラッグでスクロール中。文字選択とツールチップを止める */
+.cal-scroll.panning { cursor: grabbing; user-select: none; }
+.cal-scroll.panning .bar { cursor: grabbing; }
 
 .cal-dates {
   display: flex;

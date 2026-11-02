@@ -51,7 +51,7 @@
       <li><b style="color:var(--ink)">アーカイブを廃止。</b>「実行済」と機能が重複しており、2テーブル化の複雑さが移植元で実際にバグを生んでいたため（<a href="detailed_design.html#diff" style="color:var(--accent)">詳細設計書 16章</a>）。代わりに完了日時を記録する。</li>
       <li><b style="color:var(--ink)">「保留」ステータスを一覧できるようにした。</b>移植元は保留を設定できるのに、保留タスクを見る手段が無かった。</li>
       <li><b style="color:var(--ink)">絞り込み条件を追加。</b>キーワード・ジャンル・カテゴリ・フラグ・<b style="color:var(--ink)">期限の範囲</b>（<a href="detailed_design.html#filter" style="color:var(--accent)">詳細設計書 10章</a>）。</li>
-      <li><b style="color:var(--ink)">既定では未完了だけを表示。</b>「保留済を表示」「実行済を表示」のチェックで足す。終わったものと止まっているものが常に混ざっていると、いま手を付けるものが埋もれるため。</li>
+      <li><b style="color:var(--ink)">既定では未完了だけを表示。</b>「保留済のみ」「実行済のみ」のチェックで、そのステータスだけに絞る。終わったものと止まっているものが常に混ざっていると、いま手を付けるものが埋もれるため。</li>
       <li><b style="color:var(--ink)">レスポンシブ対応。</b>移植元はメディアクエリを1つも持たず、縮めると操作不能・最大化しても640pxのままだった。360pxまで耐え、1024pxで3カラムへ組み替える。詳細が下から出るのは狭い時だけで、広い時は右サイドパネルになる（<a href="detailed_design.html#responsive" style="color:var(--accent)">詳細設計書 11章</a>）。</li>
       <li><code class="mono text-xs bg-black/5 px-1 rounded">import_log</code> テーブルを廃止。CSVの二重取込は「先にリネームしてから読む」順序で防ぐ。</li>
     </ul>
